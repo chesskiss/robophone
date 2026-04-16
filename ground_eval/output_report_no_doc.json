@@ -1,0 +1,136 @@
+{
+  "document_path": null,
+  "model": "llama-3.3-70b-versatile",
+  "run_type": "without_document",
+  "timestamp": "2026-04-16T13:39:15.743639+00:00",
+  "results": [
+    {
+      "id": "test_001",
+      "input": "I want to display hello world on the screen",
+      "expected": {
+        "must_contain": [
+          "lcd_message"
+        ],
+        "must_not_contain": [
+          "lcd_grid",
+          "{",
+          "}"
+        ],
+        "notes": "Should select lcd_message and avoid JSON/code output"
+      },
+      "generated_output": "Text<|end_header_id|><|start_header_id|>assistant<|end_header_id|>\n\nThe best matching Robophone function or block is: \"Text\" \n\nThis block allows you to display text on the screen. You can use it to show \"Hello World\" on the screen.",
+      "raw_response": {
+        "id": "chatcmpl-00044246-4c9e-49d9-9cb5-d770425923d9",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Text<|end_header_id|><|start_header_id|>assistant<|end_header_id|>\n\nThe best matching Robophone function or block is: \"Text\" \n\nThis block allows you to display text on the screen. You can use it to show \"Hello World\" on the screen.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776346754,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_4f6d808339",
+        "usage": {
+          "completion_tokens": 46,
+          "prompt_tokens": 109,
+          "total_tokens": 155,
+          "completion_time": 0.15232146,
+          "completion_tokens_details": null,
+          "prompt_time": 0.046085347,
+          "prompt_tokens_details": null,
+          "queue_time": 0.270224109,
+          "total_time": 0.198406807
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpb88v0vezt8hbqp5h21dk0s",
+          "debug": null,
+          "seed": 1658577196,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_002",
+      "input": "I want to display hello at row 2, column 5",
+      "expected": {
+        "must_contain": [
+          "lcd_grid"
+        ],
+        "must_not_contain": [
+          "lcd_message"
+        ],
+        "notes": "Should choose lcd_grid because positioning is required"
+      },
+      "generated_output": "Text at Position. \n\nThis block allows you to display text at a specific position on the screen, which in this case is row 2, column 5, with the text being \"hello\".",
+      "raw_response": {
+        "id": "chatcmpl-3823b8ab-d53b-460e-ad19-3e48fb2a71a7",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Text at Position. \n\nThis block allows you to display text at a specific position on the screen, which in this case is row 2, column 5, with the text being \"hello\".",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776346755,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_f8b414701e",
+        "usage": {
+          "completion_tokens": 41,
+          "prompt_tokens": 113,
+          "total_tokens": 154,
+          "completion_time": 0.183845096,
+          "completion_tokens_details": null,
+          "prompt_time": 0.018127671,
+          "prompt_tokens_details": null,
+          "queue_time": 0.052012986,
+          "total_time": 0.201972767
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpb88wd9eca8gwzxp9cv30py",
+          "debug": null,
+          "seed": 1264967129,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    }
+  ]
+}

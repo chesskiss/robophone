@@ -1,0 +1,136 @@
+{
+  "document_path": "/Users/arnoldcheskis/Documents/Projects/Archive/Robophysics/robophone/ground_eval/robophone_llm_baseline_instructions.md",
+  "model": "llama-3.3-70b-versatile",
+  "run_type": "baseline_document",
+  "timestamp": "2026-04-16T14:08:18.088689+00:00",
+  "results": [
+    {
+      "id": "test_001",
+      "input": "I want to display hello world on the screen",
+      "expected": {
+        "must_contain": [
+          "lcd_message"
+        ],
+        "must_not_contain": [
+          "lcd_grid",
+          "{",
+          "}"
+        ],
+        "notes": "Should select lcd_message and avoid JSON/code output"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block to display \"hello world\" on the screen would be a block from the \"Virtual Display\" category. \n\nA possible block name could be \"Display Text\". This block would likely be used to show text on the virtual screen, such as \"hello world\".",
+      "raw_response": {
+        "id": "chatcmpl-346bc4a2-01dc-4d5b-8dc8-6634ecb8f208",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block to display \"hello world\" on the screen would be a block from the \"Virtual Display\" category. \n\nA possible block name could be \"Display Text\". This block would likely be used to show text on the virtual screen, such as \"hello world\".",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776348496,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_dae98b5ecb",
+        "usage": {
+          "completion_tokens": 68,
+          "prompt_tokens": 508,
+          "total_tokens": 576,
+          "completion_time": 0.237772279,
+          "completion_tokens_details": null,
+          "prompt_time": 0.028750039,
+          "prompt_tokens_details": null,
+          "queue_time": 0.115313547,
+          "total_time": 0.266522318
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpb9y0c6f8xa42y30stnjqae",
+          "debug": null,
+          "seed": 143008644,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_002",
+      "input": "I want to display hello at row 2, column 5",
+      "expected": {
+        "must_contain": [
+          "lcd_grid"
+        ],
+        "must_not_contain": [
+          "lcd_message"
+        ],
+        "notes": "Should choose lcd_grid because positioning is required"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block to display \"hello\" at a specific position (row 2, column 5) would be a block from the \"Virtual Display\" category. \n\nA possible block name could be \"Display Text\" or \"Show Message\", but since specific block names are not defined in the document, the exact name is unknown. However, the intended action would involve selecting a block that allows displaying text on a virtual screen and configuring its parameters to show \"hello\" at the specified position.",
+      "raw_response": {
+        "id": "chatcmpl-8f62fba2-5ba3-44b6-9208-d709ae37846f",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block to display \"hello\" at a specific position (row 2, column 5) would be a block from the \"Virtual Display\" category. \n\nA possible block name could be \"Display Text\" or \"Show Message\", but since specific block names are not defined in the document, the exact name is unknown. However, the intended action would involve selecting a block that allows displaying text on a virtual screen and configuring its parameters to show \"hello\" at the specified position.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776348498,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_f8b414701e",
+        "usage": {
+          "completion_tokens": 112,
+          "prompt_tokens": 512,
+          "total_tokens": 624,
+          "completion_time": 0.482630001,
+          "completion_tokens_details": null,
+          "prompt_time": 0.062031143,
+          "prompt_tokens_details": null,
+          "queue_time": 0.065514726,
+          "total_time": 0.544661144
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpb9y1hye4rtqfecgg4eb2e5",
+          "debug": null,
+          "seed": 1589128306,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    }
+  ]
+}

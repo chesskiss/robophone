@@ -1,0 +1,8 @@
+.DS_Store
+.env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+output_report.json
+output_report.md
