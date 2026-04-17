@@ -3,8 +3,14 @@
     "id": "test_001",
     "input": "I want to display hello world on the screen",
     "expected": {
-      "must_contain": ["lcd_message"],
-      "must_not_contain": ["lcd_grid", "{", "}"],
+      "must_contain": [
+        "lcd_message"
+      ],
+      "must_not_contain": [
+        "lcd_grid",
+        "{",
+        "}"
+      ],
       "notes": "Should select lcd_message and avoid JSON/code output"
     }
   },
@@ -12,9 +18,221 @@
     "id": "test_002",
     "input": "I want to display hello at row 2, column 5",
     "expected": {
-      "must_contain": ["lcd_grid"],
-      "must_not_contain": ["lcd_message"],
+      "must_contain": [
+        "lcd_grid"
+      ],
+      "must_not_contain": [
+        "lcd_message"
+      ],
       "notes": "Should choose lcd_grid because positioning is required"
+    }
+  },
+  {
+    "id": "test_003",
+    "input": "show a binary value using leds",
+    "expected": {
+      "must_contain": [
+        "led_8bit"
+      ],
+      "must_not_contain": [
+        "lcd_message"
+      ],
+      "notes": "binary visualization"
+    }
+  },
+  {
+    "id": "test_004",
+    "input": "plot values on a graph over time",
+    "expected": {
+      "must_contain": [
+        "graph_draw_on"
+      ],
+      "must_not_contain": [
+        "lcd_grid"
+      ],
+      "notes": "continuous plotting"
+    }
+  },
+  {
+    "id": "test_005",
+    "input": "play a sound from text",
+    "expected": {
+      "must_contain": [
+        "text_to_voice"
+      ],
+      "must_not_contain": [
+        "voice_to_text"
+      ],
+      "notes": "tts selection"
+    }
+  },
+  {
+    "id": "test_006",
+    "input": "get user numeric input from keypad",
+    "expected": {
+      "must_contain": [
+        "keypad_numeric"
+      ],
+      "must_not_contain": [
+        "keyboard_text"
+      ],
+      "notes": "numeric vs text input"
+    }
+  },
+  {
+    "id": "test_007",
+    "input": "detect a color from camera",
+    "expected": {
+      "must_contain": [
+        "color_detect"
+      ],
+      "must_not_contain": [
+        "color_ambient"
+      ],
+      "notes": "classification vs intensity"
+    }
+  },
+  {
+    "id": "test_008",
+    "input": "send a message to a phone number",
+    "expected": {
+      "must_contain": [
+        "send_sms"
+      ],
+      "must_not_contain": [
+        "get_sms"
+      ],
+      "notes": "outgoing communication"
+    }
+  },
+  {
+    "id": "test_009",
+    "input": "save a line of text to a file",
+    "expected": {
+      "must_contain": [
+        "write_line_file"
+      ],
+      "must_not_contain": [
+        "read_line_file"
+      ],
+      "notes": "write vs read"
+    }
+  },
+  {
+    "id": "test_010",
+    "input": "run code repeatedly 5 times",
+    "expected": {
+      "must_contain": [
+        "repeat_n"
+      ],
+      "must_not_contain": [
+        "repeat_until"
+      ],
+      "notes": "fixed loop"
+    }
+  },
+  {
+    "id": "test_011",
+    "input": "check if two numbers are equal",
+    "expected": {
+      "must_contain": [
+        "number_compare"
+      ],
+      "must_not_contain": [
+        "range_check"
+      ],
+      "notes": "direct comparison"
+    }
+  },
+  {
+    "id": "test_012",
+    "input": "calculate sine of an angle",
+    "expected": {
+      "must_contain": [
+        "trig_function"
+      ],
+      "must_not_contain": [
+        "math_operation"
+      ],
+      "notes": "trigonometry"
+    }
+  },
+  {
+    "id": "test_013",
+    "input": "store a value in a variable",
+    "expected": {
+      "must_contain": [
+        "set_variable"
+      ],
+      "must_not_contain": [
+        "get_variable"
+      ],
+      "notes": "assignment"
+    }
+  },
+  {
+    "id": "test_014",
+    "input": "get current value of a variable",
+    "expected": {
+      "must_contain": [
+        "get_variable"
+      ],
+      "must_not_contain": [
+        "set_variable"
+      ],
+      "notes": "retrieval"
+    }
+  },
+  {
+    "id": "test_015",
+    "input": "convert text to uppercase",
+    "expected": {
+      "must_contain": [
+        "case_convert"
+      ],
+      "must_not_contain": [
+        "translate_text"
+      ],
+      "notes": "case conversion"
+    }
+  },
+  {
+    "id": "test_016",
+    "input": "create a list with 5 identical values",
+    "expected": {
+      "must_contain": [
+        "list_repeat"
+      ],
+      "must_not_contain": [
+        "create_list"
+      ],
+      "notes": "repetitive list"
+    }
+  },
+  {
+    "id": "test_017",
+    "input": "move robot forward with steering",
+    "expected": {
+      "must_contain": [
+        "move_steering"
+      ],
+      "must_not_contain": [
+        "move_tank"
+      ],
+      "notes": "steering control"
+    }
+  },
+  {
+    "id": "test_018",
+    "input": "control left and right motors separately",
+    "expected": {
+      "must_contain": [
+        "move_tank"
+      ],
+      "must_not_contain": [
+        "move_steering"
+      ],
+      "notes": "tank control"
     }
   }
 ]

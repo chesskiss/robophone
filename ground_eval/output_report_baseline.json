@@ -2,7 +2,7 @@
   "document_path": "/Users/arnoldcheskis/Documents/Projects/Archive/Robophysics/robophone/ground_eval/robophone_llm_baseline_instructions.md",
   "model": "llama-3.3-70b-versatile",
   "run_type": "baseline_document",
-  "timestamp": "2026-04-16T14:08:18.088689+00:00",
+  "timestamp": "2026-04-17T15:13:48.947385+00:00",
   "results": [
     {
       "id": "test_001",
@@ -18,16 +18,16 @@
         ],
         "notes": "Should select lcd_message and avoid JSON/code output"
       },
-      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block to display \"hello world\" on the screen would be a block from the \"Virtual Display\" category. \n\nA possible block name could be \"Display Text\". This block would likely be used to show text on the virtual screen, such as \"hello world\".",
+      "generated_output": "Based on the document, the best matching Robophone function or block to display \"hello world\" on the screen would be a block from the \"Virtual Display\" category. \n\nA possible block name could be \"Display Text\".",
       "raw_response": {
-        "id": "chatcmpl-346bc4a2-01dc-4d5b-8dc8-6634ecb8f208",
+        "id": "chatcmpl-2d9afc3b-ee9a-417f-92ce-b7e98d28004e",
         "choices": [
           {
             "finish_reason": "stop",
             "index": 0,
             "logprobs": null,
             "message": {
-              "content": "Based on the provided grounding document, the best matching Robophone function or block to display \"hello world\" on the screen would be a block from the \"Virtual Display\" category. \n\nA possible block name could be \"Display Text\". This block would likely be used to show text on the virtual screen, such as \"hello world\".",
+              "content": "Based on the document, the best matching Robophone function or block to display \"hello world\" on the screen would be a block from the \"Virtual Display\" category. \n\nA possible block name could be \"Display Text\".",
               "role": "assistant",
               "annotations": null,
               "executed_tools": null,
@@ -37,28 +37,28 @@
             }
           }
         ],
-        "created": 1776348496,
+        "created": 1776438792,
         "model": "llama-3.3-70b-versatile",
         "object": "chat.completion",
         "mcp_list_tools": null,
         "service_tier": "on_demand",
-        "system_fingerprint": "fp_dae98b5ecb",
+        "system_fingerprint": "fp_3272ea2d91",
         "usage": {
-          "completion_tokens": 68,
+          "completion_tokens": 46,
           "prompt_tokens": 508,
-          "total_tokens": 576,
-          "completion_time": 0.237772279,
+          "total_tokens": 554,
+          "completion_time": 0.129411918,
           "completion_tokens_details": null,
-          "prompt_time": 0.028750039,
+          "prompt_time": 0.213347282,
           "prompt_tokens_details": null,
-          "queue_time": 0.115313547,
-          "total_time": 0.266522318
+          "queue_time": 0.278043219,
+          "total_time": 0.3427592
         },
         "usage_breakdown": null,
         "x_groq": {
-          "id": "req_01kpb9y0c6f8xa42y30stnjqae",
+          "id": "req_01kpe01kvxffgrecxkw160w8xv",
           "debug": null,
-          "seed": 143008644,
+          "seed": 1188932863,
           "usage": null
         }
       },
@@ -81,16 +81,16 @@
         ],
         "notes": "Should choose lcd_grid because positioning is required"
       },
-      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block to display \"hello\" at a specific position (row 2, column 5) would be a block from the \"Virtual Display\" category. \n\nA possible block name could be \"Display Text\" or \"Show Message\", but since specific block names are not defined in the document, the exact name is unknown. However, the intended action would involve selecting a block that allows displaying text on a virtual screen and configuring its parameters to show \"hello\" at the specified position.",
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block to display \"hello\" at a specific position on a virtual screen would be a block from the \"Virtual Display\" category. \n\nA possible block could be \"Display Text\" and would need to be configured with the parameters \"row\", \"column\", and \"text\" to achieve the desired output.",
       "raw_response": {
-        "id": "chatcmpl-8f62fba2-5ba3-44b6-9208-d709ae37846f",
+        "id": "chatcmpl-cf5fc83a-3caf-41db-9a50-5c0007ca547f",
         "choices": [
           {
             "finish_reason": "stop",
             "index": 0,
             "logprobs": null,
             "message": {
-              "content": "Based on the provided grounding document, the best matching Robophone function or block to display \"hello\" at a specific position (row 2, column 5) would be a block from the \"Virtual Display\" category. \n\nA possible block name could be \"Display Text\" or \"Show Message\", but since specific block names are not defined in the document, the exact name is unknown. However, the intended action would involve selecting a block that allows displaying text on a virtual screen and configuring its parameters to show \"hello\" at the specified position.",
+              "content": "Based on the provided grounding document, the best matching Robophone function or block to display \"hello\" at a specific position on a virtual screen would be a block from the \"Virtual Display\" category. \n\nA possible block could be \"Display Text\" and would need to be configured with the parameters \"row\", \"column\", and \"text\" to achieve the desired output.",
               "role": "assistant",
               "annotations": null,
               "executed_tools": null,
@@ -100,28 +100,1036 @@
             }
           }
         ],
-        "created": 1776348498,
+        "created": 1776438794,
         "model": "llama-3.3-70b-versatile",
         "object": "chat.completion",
         "mcp_list_tools": null,
         "service_tier": "on_demand",
         "system_fingerprint": "fp_f8b414701e",
         "usage": {
-          "completion_tokens": 112,
+          "completion_tokens": 76,
           "prompt_tokens": 512,
-          "total_tokens": 624,
-          "completion_time": 0.482630001,
+          "total_tokens": 588,
+          "completion_time": 0.218389983,
           "completion_tokens_details": null,
-          "prompt_time": 0.062031143,
+          "prompt_time": 0.032559898,
           "prompt_tokens_details": null,
-          "queue_time": 0.065514726,
-          "total_time": 0.544661144
+          "queue_time": 0.051400226,
+          "total_time": 0.250949881
         },
         "usage_breakdown": null,
         "x_groq": {
-          "id": "req_01kpb9y1hye4rtqfecgg4eb2e5",
+          "id": "req_01kpe01nrrebcse1pbgmq5ncmj",
           "debug": null,
-          "seed": 1589128306,
+          "seed": 2088589025,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_003",
+      "input": "show a binary value using leds",
+      "expected": {
+        "must_contain": [
+          "led_8bit"
+        ],
+        "must_not_contain": [
+          "lcd_message"
+        ],
+        "notes": "binary visualization"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block to show a binary value using LEDs would be a block from the \"Virtual Display\" category, possibly with a name like \"Display Binary\" or \"Show LEDs\". However, since specific block names are not defined in the document, a more general answer would be to use a block from the \"Virtual Display\" category that can handle displaying binary values or controlling LEDs.",
+      "raw_response": {
+        "id": "chatcmpl-6e3d226c-6ea5-4336-9e72-982dad414a7e",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block to show a binary value using LEDs would be a block from the \"Virtual Display\" category, possibly with a name like \"Display Binary\" or \"Show LEDs\". However, since specific block names are not defined in the document, a more general answer would be to use a block from the \"Virtual Display\" category that can handle displaying binary values or controlling LEDs.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438796,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_f8b414701e",
+        "usage": {
+          "completion_tokens": 89,
+          "prompt_tokens": 505,
+          "total_tokens": 594,
+          "completion_time": 0.324337687,
+          "completion_tokens_details": null,
+          "prompt_time": 0.072831397,
+          "prompt_tokens_details": null,
+          "queue_time": 0.057426789,
+          "total_time": 0.397169084
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe01qkcecetp2wahx0fm2qt",
+          "debug": null,
+          "seed": 22887397,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_004",
+      "input": "plot values on a graph over time",
+      "expected": {
+        "must_contain": [
+          "graph_draw_on"
+        ],
+        "must_not_contain": [
+          "lcd_grid"
+        ],
+        "notes": "continuous plotting"
+      },
+      "generated_output": "The best matching Robophone function or block for plotting values on a graph over time is likely found in the \"Virtual Display\" category, possibly a block related to visualizing data. A potential block name could be \"Plot Data\" or \"Graph Output\", but the exact name is not specified in the document.",
+      "raw_response": {
+        "id": "chatcmpl-3cee9878-7d37-4ccf-96b4-8f42cd1785bf",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "The best matching Robophone function or block for plotting values on a graph over time is likely found in the \"Virtual Display\" category, possibly a block related to visualizing data. A potential block name could be \"Plot Data\" or \"Graph Output\", but the exact name is not specified in the document.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438799,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_4f6d808339",
+        "usage": {
+          "completion_tokens": 63,
+          "prompt_tokens": 506,
+          "total_tokens": 569,
+          "completion_time": 0.204105588,
+          "completion_tokens_details": null,
+          "prompt_time": 0.029054995,
+          "prompt_tokens_details": null,
+          "queue_time": 1.111385812,
+          "total_time": 0.233160583
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe01svtfht9dwetfaa8jbmj",
+          "debug": null,
+          "seed": 1142227995,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_005",
+      "input": "play a sound from text",
+      "expected": {
+        "must_contain": [
+          "text_to_voice"
+        ],
+        "must_not_contain": [
+          "voice_to_text"
+        ],
+        "notes": "tts selection"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block for playing a sound from text is not explicitly defined. However, considering the categories mentioned, a possible match could be a block from the \"Virtual Display\" category, as it might include blocks for playing sounds or interacting with the virtual smartphone environment. \n\nA potential block name could be \"Play Sound\" or \"Text-to-Speech\", but this is an assumption, as specific block names are not defined in the document.",
+      "raw_response": {
+        "id": "chatcmpl-adaf99d3-b1a6-4656-bf3b-832d6a28facb",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block for playing a sound from text is not explicitly defined. However, considering the categories mentioned, a possible match could be a block from the \"Virtual Display\" category, as it might include blocks for playing sounds or interacting with the virtual smartphone environment. \n\nA potential block name could be \"Play Sound\" or \"Text-to-Speech\", but this is an assumption, as specific block names are not defined in the document.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438801,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_f8b414701e",
+        "usage": {
+          "completion_tokens": 100,
+          "prompt_tokens": 504,
+          "total_tokens": 604,
+          "completion_time": 0.390295196,
+          "completion_tokens_details": null,
+          "prompt_time": 0.031125717,
+          "prompt_tokens_details": null,
+          "queue_time": 0.050436859,
+          "total_time": 0.421420913
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe01x1zee89c37m73eskw6z",
+          "debug": null,
+          "seed": 467999405,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_006",
+      "input": "get user numeric input from keypad",
+      "expected": {
+        "must_contain": [
+          "keypad_numeric"
+        ],
+        "must_not_contain": [
+          "keyboard_text"
+        ],
+        "notes": "numeric vs text input"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block for \"get user numeric input from keypad\" would be a block under the \"Sensors\" category, as it involves interacting with user input. A possible block name could be \"Get Keypad Input\" or \"Read Numeric Input\", but the document does not specify exact block names.",
+      "raw_response": {
+        "id": "chatcmpl-b650ffe8-bb20-4b48-a667-b4f3bbf3e25a",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block for \"get user numeric input from keypad\" would be a block under the \"Sensors\" category, as it involves interacting with user input. A possible block name could be \"Get Keypad Input\" or \"Read Numeric Input\", but the document does not specify exact block names.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438804,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_dae98b5ecb",
+        "usage": {
+          "completion_tokens": 73,
+          "prompt_tokens": 505,
+          "total_tokens": 578,
+          "completion_time": 0.302606313,
+          "completion_tokens_details": null,
+          "prompt_time": 0.064690311,
+          "prompt_tokens_details": null,
+          "queue_time": 0.113727379,
+          "total_time": 0.367296624
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe01z5cfvnr3d4b32sg5h03",
+          "debug": null,
+          "seed": 2114432674,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_007",
+      "input": "detect a color from camera",
+      "expected": {
+        "must_contain": [
+          "color_detect"
+        ],
+        "must_not_contain": [
+          "color_ambient"
+        ],
+        "notes": "classification vs intensity"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block for detecting a color from a camera would be a block from the \"Sensors\" category. \n\nA possible block name could be \"Get Camera Color\" or \"Detect Color\", but the exact name is not specified in the document. This block would likely be used to capture and process visual data from the camera, allowing the program to react based on the detected color.",
+      "raw_response": {
+        "id": "chatcmpl-1c9c84fd-33f9-49a0-b895-d4f85f62a82d",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block for detecting a color from a camera would be a block from the \"Sensors\" category. \n\nA possible block name could be \"Get Camera Color\" or \"Detect Color\", but the exact name is not specified in the document. This block would likely be used to capture and process visual data from the camera, allowing the program to react based on the detected color.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438806,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_d42c28f9ce",
+        "usage": {
+          "completion_tokens": 90,
+          "prompt_tokens": 504,
+          "total_tokens": 594,
+          "completion_time": 0.282163027,
+          "completion_tokens_details": null,
+          "prompt_time": 0.059136268,
+          "prompt_tokens_details": null,
+          "queue_time": 0.161312677,
+          "total_time": 0.341299295
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe02118eftry51ed6epdx37",
+          "debug": null,
+          "seed": 318568255,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_008",
+      "input": "send a message to a phone number",
+      "expected": {
+        "must_contain": [
+          "send_sms"
+        ],
+        "must_not_contain": [
+          "get_sms"
+        ],
+        "notes": "outgoing communication"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block for sending a message to a phone number would be found in the \"Virtual Display\" category, possibly related to a block that handles texting or messaging functionality. However, since specific block names are not defined in the document, a hypothetical block name could be \"Send Message\" or \"Text Message\" block, which would be part of the program structure that involves displaying or sending information, falling under the broader category of \"Virtual Display\" or potentially a \"Communication\" category if it existed.",
+      "raw_response": {
+        "id": "chatcmpl-2b957835-6dbf-49a3-86ba-7f240182d053",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block for sending a message to a phone number would be found in the \"Virtual Display\" category, possibly related to a block that handles texting or messaging functionality. However, since specific block names are not defined in the document, a hypothetical block name could be \"Send Message\" or \"Text Message\" block, which would be part of the program structure that involves displaying or sending information, falling under the broader category of \"Virtual Display\" or potentially a \"Communication\" category if it existed.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438807,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_f8b414701e",
+        "usage": {
+          "completion_tokens": 113,
+          "prompt_tokens": 506,
+          "total_tokens": 619,
+          "completion_time": 0.451560071,
+          "completion_tokens_details": null,
+          "prompt_time": 0.027359096,
+          "prompt_tokens_details": null,
+          "queue_time": 0.057556631,
+          "total_time": 0.478919167
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe022nhfmnra29z1ezy147d",
+          "debug": null,
+          "seed": 1227055859,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_009",
+      "input": "save a line of text to a file",
+      "expected": {
+        "must_contain": [
+          "write_line_file"
+        ],
+        "must_not_contain": [
+          "read_line_file"
+        ],
+        "notes": "write vs read"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block for saving a line of text to a file would be a block under the \"Logic\" category, possibly related to data processing or storage. However, since specific block names are not defined in the document, a hypothetical block name could be \"Write to File\" or \"Save Text\".",
+      "raw_response": {
+        "id": "chatcmpl-f5d2e53c-88bd-4f68-ab35-e6511c055d8f",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block for saving a line of text to a file would be a block under the \"Logic\" category, possibly related to data processing or storage. However, since specific block names are not defined in the document, a hypothetical block name could be \"Write to File\" or \"Save Text\".",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438809,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_43d97c5965",
+        "usage": {
+          "completion_tokens": 73,
+          "prompt_tokens": 507,
+          "total_tokens": 580,
+          "completion_time": 0.26935839,
+          "completion_tokens_details": null,
+          "prompt_time": 0.095452257,
+          "prompt_tokens_details": null,
+          "queue_time": 0.179486387,
+          "total_time": 0.364810647
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe0247dfwvbgv84q8eyvtk0",
+          "debug": null,
+          "seed": 1318068998,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_010",
+      "input": "run code repeatedly 5 times",
+      "expected": {
+        "must_contain": [
+          "repeat_n"
+        ],
+        "must_not_contain": [
+          "repeat_until"
+        ],
+        "notes": "fixed loop"
+      },
+      "generated_output": "The best matching Robophone function or block based on the document would be a block from the \"Flow Control\" category, possibly named \"Repeat\" or \"Loop\". This block would allow the user to run a sequence of code repeatedly, in this case, 5 times.",
+      "raw_response": {
+        "id": "chatcmpl-a7b47fd1-727f-49e4-a240-f454d979a1be",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "The best matching Robophone function or block based on the document would be a block from the \"Flow Control\" category, possibly named \"Repeat\" or \"Loop\". This block would allow the user to run a sequence of code repeatedly, in this case, 5 times.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438811,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_3272ea2d91",
+        "usage": {
+          "completion_tokens": 56,
+          "prompt_tokens": 505,
+          "total_tokens": 561,
+          "completion_time": 0.18759765,
+          "completion_tokens_details": null,
+          "prompt_time": 0.34010942,
+          "prompt_tokens_details": null,
+          "queue_time": 0.26926508,
+          "total_time": 0.52770707
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe026bqeggananwynxa86wd",
+          "debug": null,
+          "seed": 1892770957,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_011",
+      "input": "check if two numbers are equal",
+      "expected": {
+        "must_contain": [
+          "number_compare"
+        ],
+        "must_not_contain": [
+          "range_check"
+        ],
+        "notes": "direct comparison"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block for checking if two numbers are equal would be a block in the \"Logic\" category, possibly with a name like \"Equals\" or \"Compare\". This block would allow users to input two numbers and determine if they are equal, following the block-based programming paradigm described in the document.",
+      "raw_response": {
+        "id": "chatcmpl-90c7a525-b7c2-41b4-bdcb-3895c4817b47",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block for checking if two numbers are equal would be a block in the \"Logic\" category, possibly with a name like \"Equals\" or \"Compare\". This block would allow users to input two numbers and determine if they are equal, following the block-based programming paradigm described in the document.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438813,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_f8b414701e",
+        "usage": {
+          "completion_tokens": 73,
+          "prompt_tokens": 505,
+          "total_tokens": 578,
+          "completion_time": 0.227176761,
+          "completion_tokens_details": null,
+          "prompt_time": 0.026597541,
+          "prompt_tokens_details": null,
+          "queue_time": 0.06420924,
+          "total_time": 0.253774302
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe0289qegr95kn7cxr84gk3",
+          "debug": null,
+          "seed": 44358210,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_012",
+      "input": "calculate sine of an angle",
+      "expected": {
+        "must_contain": [
+          "trig_function"
+        ],
+        "must_not_contain": [
+          "math_operation"
+        ],
+        "notes": "trigonometry"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block for calculating the sine of an angle would be in the \"Logic\" or \"Sensors\" category, but the document does not define specific block names. \n\nA possible block name could be \"Math Operation\" or \"Trigonometric Function\" within the \"Logic\" category, as it is related to performing mathematical operations. However, the exact block name and parameters are not specified in the document.",
+      "raw_response": {
+        "id": "chatcmpl-9dc97070-0c9a-48ec-bbfc-eae5dbf2a445",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block for calculating the sine of an angle would be in the \"Logic\" or \"Sensors\" category, but the document does not define specific block names. \n\nA possible block name could be \"Math Operation\" or \"Trigonometric Function\" within the \"Logic\" category, as it is related to performing mathematical operations. However, the exact block name and parameters are not specified in the document.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438815,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_4f6d808339",
+        "usage": {
+          "completion_tokens": 96,
+          "prompt_tokens": 504,
+          "total_tokens": 600,
+          "completion_time": 0.354006788,
+          "completion_tokens_details": null,
+          "prompt_time": 0.195052532,
+          "prompt_tokens_details": null,
+          "queue_time": 0.269099629,
+          "total_time": 0.54905932
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe029hkegzbrtn2fs48j1p1",
+          "debug": null,
+          "seed": 1782266585,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_013",
+      "input": "store a value in a variable",
+      "expected": {
+        "must_contain": [
+          "set_variable"
+        ],
+        "must_not_contain": [
+          "get_variable"
+        ],
+        "notes": "assignment"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block for storing a value in a variable would be a block in the \"Logic\" category, possibly related to \"Data Storage\" or \"Variable Management\". However, since specific block names are not defined in the document, a suitable block could be hypothesized as \"Set Variable\" within the Logic category.",
+      "raw_response": {
+        "id": "chatcmpl-2805588f-3234-4416-90fb-77c0d07dcfff",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block for storing a value in a variable would be a block in the \"Logic\" category, possibly related to \"Data Storage\" or \"Variable Management\". However, since specific block names are not defined in the document, a suitable block could be hypothesized as \"Set Variable\" within the Logic category.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438817,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_3272ea2d91",
+        "usage": {
+          "completion_tokens": 76,
+          "prompt_tokens": 505,
+          "total_tokens": 581,
+          "completion_time": 0.262366604,
+          "completion_tokens_details": null,
+          "prompt_time": 0.087241329,
+          "prompt_tokens_details": null,
+          "queue_time": 0.267015336,
+          "total_time": 0.349607933
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe02bzqehzae1sfshfevj6f",
+          "debug": null,
+          "seed": 125987374,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_014",
+      "input": "get current value of a variable",
+      "expected": {
+        "must_contain": [
+          "get_variable"
+        ],
+        "must_not_contain": [
+          "set_variable"
+        ],
+        "notes": "retrieval"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block for getting the current value of a variable would be a block under the \"Logic\" category, possibly with a name like \"Get Variable\" or \"Read Variable\". However, since specific block names are not defined in the document, the most accurate answer would be to look for a block in the \"Logic\" category that allows accessing or retrieving variable values.",
+      "raw_response": {
+        "id": "chatcmpl-9c37781f-3e93-411f-b75c-e0745a6706c6",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block for getting the current value of a variable would be a block under the \"Logic\" category, possibly with a name like \"Get Variable\" or \"Read Variable\". However, since specific block names are not defined in the document, the most accurate answer would be to look for a block in the \"Logic\" category that allows accessing or retrieving variable values.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438819,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_d42c28f9ce",
+        "usage": {
+          "completion_tokens": 87,
+          "prompt_tokens": 505,
+          "total_tokens": 592,
+          "completion_time": 0.294329611,
+          "completion_tokens_details": null,
+          "prompt_time": 0.031491971,
+          "prompt_tokens_details": null,
+          "queue_time": 0.164798124,
+          "total_time": 0.325821582
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe02eeyej9thstqqk3hng3g",
+          "debug": null,
+          "seed": 655675251,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_015",
+      "input": "convert text to uppercase",
+      "expected": {
+        "must_contain": [
+          "case_convert"
+        ],
+        "must_not_contain": [
+          "translate_text"
+        ],
+        "notes": "case conversion"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block for converting text to uppercase would be a block in the \"Logic\" category, possibly with a name like \"Text Transformation\" or \"String Operation\", but the exact block name is not defined in the document.",
+      "raw_response": {
+        "id": "chatcmpl-35246cf9-96bb-4a41-95ee-ec952143b0cb",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block for converting text to uppercase would be a block in the \"Logic\" category, possibly with a name like \"Text Transformation\" or \"String Operation\", but the exact block name is not defined in the document.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438821,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_4f6d808339",
+        "usage": {
+          "completion_tokens": 58,
+          "prompt_tokens": 503,
+          "total_tokens": 561,
+          "completion_time": 0.229115944,
+          "completion_tokens_details": null,
+          "prompt_time": 0.078594488,
+          "prompt_tokens_details": null,
+          "queue_time": 0.298892044,
+          "total_time": 0.307710432
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe02gbwfzt9kajqb22gwby0",
+          "debug": null,
+          "seed": 1405321186,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_016",
+      "input": "create a list with 5 identical values",
+      "expected": {
+        "must_contain": [
+          "list_repeat"
+        ],
+        "must_not_contain": [
+          "create_list"
+        ],
+        "notes": "repetitive list"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block to create a list with 5 identical values would be a block from the \"Logic\" category, possibly with a function related to \"repeat\" or \"create list\". However, since specific block names are not defined in the document, a more general answer would be to use a block that allows \"repeat\" or \"sequence\" operations, which can be found in the \"Logic\" or \"Flow Control\" categories.",
+      "raw_response": {
+        "id": "chatcmpl-d21645df-ea70-4afe-9266-7f63c25bf5d6",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block to create a list with 5 identical values would be a block from the \"Logic\" category, possibly with a function related to \"repeat\" or \"create list\". However, since specific block names are not defined in the document, a more general answer would be to use a block that allows \"repeat\" or \"sequence\" operations, which can be found in the \"Logic\" or \"Flow Control\" categories.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438824,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_0761e44d7b",
+        "usage": {
+          "completion_tokens": 100,
+          "prompt_tokens": 507,
+          "total_tokens": 607,
+          "completion_time": 0.367637151,
+          "completion_tokens_details": null,
+          "prompt_time": 0.05864266,
+          "prompt_tokens_details": null,
+          "queue_time": 0.197181066,
+          "total_time": 0.426279811
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe02jeyejybesc5ar9xf47t",
+          "debug": null,
+          "seed": 1290556035,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_017",
+      "input": "move robot forward with steering",
+      "expected": {
+        "must_contain": [
+          "move_steering"
+        ],
+        "must_not_contain": [
+          "move_tank"
+        ],
+        "notes": "steering control"
+      },
+      "generated_output": "Based on the provided document, the best matching Robophone function or block for \"move robot forward with steering\" would be in the \"Sensors\" or \"Logic\" category, but since the document does not define specific block names, a possible match could be a block under \"Sensors\" or \"Logic\" related to movement or direction, such as \"Move\" or \"Steer\". However, without specific block names, the most accurate answer would be to look for a block in the \"Sensors\" or \"Logic\" category that controls movement.",
+      "raw_response": {
+        "id": "chatcmpl-f74873a9-b486-4f2c-aacb-e77e815440ae",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided document, the best matching Robophone function or block for \"move robot forward with steering\" would be in the \"Sensors\" or \"Logic\" category, but since the document does not define specific block names, a possible match could be a block under \"Sensors\" or \"Logic\" related to movement or direction, such as \"Move\" or \"Steer\". However, without specific block names, the most accurate answer would be to look for a block in the \"Sensors\" or \"Logic\" category that controls movement.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438825,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_0761e44d7b",
+        "usage": {
+          "completion_tokens": 113,
+          "prompt_tokens": 504,
+          "total_tokens": 617,
+          "completion_time": 0.436808166,
+          "completion_tokens_details": null,
+          "prompt_time": 0.052523241,
+          "prompt_tokens_details": null,
+          "queue_time": 0.19628839,
+          "total_time": 0.489331407
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe02m6cfs3vhe8ps74kwfwb",
+          "debug": null,
+          "seed": 1018848910,
+          "usage": null
+        }
+      },
+      "basic_eval": {
+        "must_contain_pass": false,
+        "must_not_contain_pass": true,
+        "matched_must_contain": [],
+        "violated_must_not_contain": []
+      }
+    },
+    {
+      "id": "test_018",
+      "input": "control left and right motors separately",
+      "expected": {
+        "must_contain": [
+          "move_tank"
+        ],
+        "must_not_contain": [
+          "move_steering"
+        ],
+        "notes": "tank control"
+      },
+      "generated_output": "Based on the provided grounding document, the best matching Robophone function or block for controlling left and right motors separately would be found in the \"Sensors\" or possibly \"Logic\" category, but since the document does not define specific block names, a plausible block could be named \"Motor Control\" in a category that handles physical interactions or movements. However, given the categories listed, a more likely block to achieve separate control over left and right motors might involve using blocks from the \"Logic\" category to differentiate between the two motors and the \"Flow Control\" category to manage the sequence of operations, potentially involving conditional statements or separate control blocks for each motor. \n\nThe closest match based on the categories provided would be to use blocks from the \"Logic\" category to create conditional statements that differentiate between controlling the left motor and the right motor, possibly in conjunction with blocks from other categories like \"Flow Control\" to manage the program's sequence. However, without specific block names, the most accurate answer would involve suggesting the use of \"Logic\" blocks to achieve the separate control, assuming there are blocks that can directly interact with motors or allow for such differentiation.",
+      "raw_response": {
+        "id": "chatcmpl-45d5feb3-edff-487b-95c8-f7217c8efe64",
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+              "content": "Based on the provided grounding document, the best matching Robophone function or block for controlling left and right motors separately would be found in the \"Sensors\" or possibly \"Logic\" category, but since the document does not define specific block names, a plausible block could be named \"Motor Control\" in a category that handles physical interactions or movements. However, given the categories listed, a more likely block to achieve separate control over left and right motors might involve using blocks from the \"Logic\" category to differentiate between the two motors and the \"Flow Control\" category to manage the sequence of operations, potentially involving conditional statements or separate control blocks for each motor. \n\nThe closest match based on the categories provided would be to use blocks from the \"Logic\" category to create conditional statements that differentiate between controlling the left motor and the right motor, possibly in conjunction with blocks from other categories like \"Flow Control\" to manage the program's sequence. However, without specific block names, the most accurate answer would involve suggesting the use of \"Logic\" blocks to achieve the separate control, assuming there are blocks that can directly interact with motors or allow for such differentiation.",
+              "role": "assistant",
+              "annotations": null,
+              "executed_tools": null,
+              "function_call": null,
+              "reasoning": null,
+              "tool_calls": null
+            }
+          }
+        ],
+        "created": 1776438828,
+        "model": "llama-3.3-70b-versatile",
+        "object": "chat.completion",
+        "mcp_list_tools": null,
+        "service_tier": "on_demand",
+        "system_fingerprint": "fp_0761e44d7b",
+        "usage": {
+          "completion_tokens": 231,
+          "prompt_tokens": 505,
+          "total_tokens": 736,
+          "completion_time": 1.030305812,
+          "completion_tokens_details": null,
+          "prompt_time": 0.153401179,
+          "prompt_tokens_details": null,
+          "queue_time": 0.227200269,
+          "total_time": 1.183706991
+        },
+        "usage_breakdown": null,
+        "x_groq": {
+          "id": "req_01kpe02pgrem785rrnak6p7y1d",
+          "debug": null,
+          "seed": 2123303121,
           "usage": null
         }
       },
