@@ -1,10 +1,11 @@
-# Robophone Grounding Evaluation
+# Robophone Grounding Evaluation and Runtime QA
 
-This module provides a lightweight harness for evaluating whether a Groq model
-selects the right Robophone block or function when grounded with a document.
+This module provides:
 
-It is intended for document-quality evaluation only. It does not execute Blockly
-blocks, generate code, or integrate with the UI.
+- a lightweight batch harness for evaluating whether a Groq model selects the right Robophone block or function when grounded with a document
+- a runtime question-answering service that ER can call for live manual guidance
+
+It still does not execute Blockly blocks or generate code, but it now also exposes a runtime single-question answer path.
 
 ## Requirements
 
@@ -71,3 +72,40 @@ The Markdown summary shows each test as:
 - Expected
 - Generated Output With Document
 - Generated Output With Baseline Document
+
+## Runtime Service
+
+The runtime service is additive and does not replace the batch evaluation flow.
+
+Service module:
+
+- `robophone/ground_eval/runtime.py`
+
+FastAPI app:
+
+- `robophone/ground_eval/app.py`
+
+Run with:
+
+```bash
+uvicorn ground_eval.app:application --reload --port 8010
+```
+
+Endpoints:
+
+- `GET /health`
+- `POST /v1/runtime/answer`
+
+Example request:
+
+```json
+{
+  "question": "How do I display text on the LCD?",
+  "current_task": "building a RoboPhone LCD demo",
+  "tone": "encouraging",
+  "detail_level": "step_by_step",
+  "context": {
+    "source": "avatar_er"
+  }
+}
+```

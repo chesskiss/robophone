@@ -9,12 +9,12 @@ try:
     from .config import VisionRTConfig
     from .detector import Detection, YoloV8Detector
     from .distance import DistanceEstimate, estimate_distance_from_box
-    from .face_refine import FaceOutline, FaceRefiner
+    from .face_refine import FaceDetectionBox, FaceOutline, FaceRefiner
 except ImportError:  # pragma: no cover - support direct script execution
     from config import VisionRTConfig
     from detector import Detection, YoloV8Detector
     from distance import DistanceEstimate, estimate_distance_from_box
-    from face_refine import FaceOutline, FaceRefiner
+    from face_refine import FaceDetectionBox, FaceOutline, FaceRefiner
 
 
 @dataclass(slots=True)
@@ -192,6 +192,15 @@ def annotate_frame(
     return frame
 
 
+def face_box_to_detection(face_box: FaceDetectionBox) -> Detection:
+    return Detection(
+        class_id=-1,
+        class_name="face",
+        confidence=face_box.confidence,
+        xyxy=tuple(float(value) for value in face_box.bbox_xyxy),
+    )
+
+
 def process_frame(
     frame,
     detector: YoloV8Detector,
@@ -203,8 +212,17 @@ def process_frame(
 ) -> FrameResult:
     frame_start = time.perf_counter()
     detection_result = detector.detect(frame)
-    detection = select_primary_detection(detection_result.detections)
+    yolo_detection = select_primary_detection(detection_result.detections)
+    face_box = face_refiner.detect_face(frame) if face_refiner is not None else None
     face_outline = face_refiner.refine(frame) if face_refiner is not None else None
+    detection = face_box_to_detection(face_box) if face_box is not None else yolo_detection
+    if face_outline is not None:
+        detection = Detection(
+            class_id=-1,
+            class_name="face",
+            confidence=detection.confidence if detection is not None else 1.0,
+            xyxy=tuple(float(value) for value in face_outline.bbox_xyxy),
+        )
     distance = None
     if detection is not None:
         frame_height, frame_width = frame.shape[:2]

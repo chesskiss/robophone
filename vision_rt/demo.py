@@ -36,7 +36,10 @@ def run_demo(config: VisionRTConfig) -> int:
         confidence_threshold=config.confidence_threshold,
         iou_threshold=config.iou_threshold,
     )
-    face_refiner = FaceRefiner(config.enable_face_refine) if config.enable_face_refine else None
+    face_refiner = FaceRefiner(
+        enabled=config.enable_face_refine,
+        prefer_face_box=True,
+    )
 
     prev_detection: Detection | None = None
     prev_outline: FaceOutline | None = None

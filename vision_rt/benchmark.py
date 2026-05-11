@@ -39,7 +39,10 @@ def run_benchmark(config: VisionRTConfig) -> int:
         confidence_threshold=config.confidence_threshold,
         iou_threshold=config.iou_threshold,
     )
-    face_refiner = FaceRefiner(config.enable_face_refine) if config.enable_face_refine else None
+    face_refiner = FaceRefiner(
+        enabled=config.enable_face_refine,
+        prefer_face_box=True,
+    )
 
     inference_samples: list[float] = []
     total_samples: list[float] = []

@@ -1,4 +1,4 @@
-"""Optional MediaPipe-based face outline refinement."""
+"""OpenCV face detection and optional MediaPipe face outline refinement."""
 
 from __future__ import annotations
 
@@ -51,32 +51,89 @@ class FaceOutline:
     bbox_xyxy: tuple[int, int, int, int]
 
 
-class FaceRefiner:
-    """MediaPipe face mesh wrapper with lazy import and clean failure mode."""
+@dataclass(slots=True)
+class FaceDetectionBox:
+    bbox_xyxy: tuple[int, int, int, int]
+    confidence: float
 
-    def __init__(self, enabled: bool) -> None:
+
+class FaceRefiner:
+    """OpenCV face detector plus optional MediaPipe face mesh wrapper."""
+
+    def __init__(self, enabled: bool, prefer_face_box: bool = True) -> None:
         self.enabled = enabled
+        self.prefer_face_box = prefer_face_box
+        self._face_detector = None
         self._mesh = None
         self._mp_face_mesh = None
+
+        try:
+            import cv2
+        except ImportError as exc:
+            raise RuntimeError(
+                "OpenCV is required for face detection. Install `opencv-python`."
+            ) from exc
+
+        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        self._face_detector = cv2.CascadeClassifier(cascade_path)
+        if self._face_detector.empty():
+            raise RuntimeError(
+                "OpenCV Haar cascade for face detection could not be loaded."
+            )
 
         if not enabled:
             return
 
         try:
             import mediapipe as mp
-        except ImportError as exc:
-            raise RuntimeError(
-                "MediaPipe is required when face refinement is enabled. "
-                "Install `mediapipe` or disable refinement."
-            ) from exc
+        except ImportError:
+            self._mesh = None
+            self._mp_face_mesh = None
+            return
 
-        self._mp_face_mesh = mp.solutions.face_mesh
+        try:
+            self._mp_face_mesh = mp.solutions.face_mesh
+        except AttributeError:
+            try:
+                from mediapipe.python.solutions import face_mesh
+            except ImportError:
+                self._mesh = None
+                self._mp_face_mesh = None
+                return
+            self._mp_face_mesh = face_mesh
+
         self._mesh = self._mp_face_mesh.FaceMesh(
             static_image_mode=False,
             max_num_faces=1,
             refine_landmarks=True,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5,
+        )
+
+    def detect_face(self, frame_bgr) -> FaceDetectionBox | None:
+        if self._face_detector is None:
+            return None
+
+        import cv2
+
+        gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        detections = self._face_detector.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(40, 40),
+        )
+        if len(detections) == 0:
+            return None
+
+        x, y, width, height = max(detections, key=lambda item: item[2] * item[3])
+        x1 = int(x)
+        y1 = int(y)
+        x2 = int(x + width)
+        y2 = int(y + height)
+        return FaceDetectionBox(
+            bbox_xyxy=(x1, y1, x2, y2),
+            confidence=1.0,
         )
 
     def refine(self, frame_bgr) -> FaceOutline | None:

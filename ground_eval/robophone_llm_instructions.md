@@ -1,4 +1,429 @@
-# Robophone LLM Manual – Virtual Display (Structured)
+Below is context you should use to provide answers to the request/questions that were given to you in the prompt about how to build program using the blockly-based Robophone framework. 
+Make the answer concise, and include ONLY the list of steps and commands needed to create the code.
+
+# Robophone LLM Manual – Foundations and Navigation
+
+## What RoboPhone Is
+
+RoboPhone is a visual programming environment used in the Robophysics program to build executable experiments and interactive systems using predefined blocks. The blocks represent actions, calculations, sensors, displays, media, communication, files, robot control, and higher-level routines.
+
+For an LLM, the important idea is not only what each block does in isolation, but how a human user would discover and choose blocks while building a task. The manual should therefore preserve the original logic of the system: blocks are grouped by purpose, each group has a visual identity, and users navigate by category first, then by the needed block.
+
+## Why the Graphic Language Matters
+
+The RoboPhone software language is meant to work together with the written explanation. A user understands the system by triangulating between:
+
+- the written description
+- the block/category structure
+- the visual programming language itself
+
+This matters for block selection. In RoboPhone, users do not start by thinking in code syntax. They start by asking:
+
+- Is this a display task?
+- Is this a sensor-reading task?
+- Is this logic or math?
+- Is this file/database work?
+- Is this a robot command?
+- Is this a macro / reusable routine?
+
+The LLM should follow that same mental path.
+
+## How to Interpret the Flowchart Language
+
+The visual language follows flowchart logic. This is important because many block choices are easier to make when the LLM understands the role of a block in the execution flow.
+
+### Start / End
+Use this form for the first and last step in a process.
+
+LLM interpretation:
+- choose these for entering or closing a program/task flow
+- these define execution boundaries, not computation
+
+### Data Processing / Process
+This is the standard processing step in a flow.
+
+Typical use:
+- arithmetic operations
+- logical calculations
+- variable handling
+- arrays
+- parameter manipulation
+- general transformation of values
+
+LLM interpretation:
+- if the task is "compute", "set", "transform", "calculate", or "update", the relevant block is usually a processing block
+
+### Decision
+This form represents a branching point where the next step depends on a result.
+
+Typical use:
+- if
+- if/else
+- comparisons
+- boolean checks
+- wait-until-true logic
+
+LLM interpretation:
+- choose decision-style blocks when the request includes conditions such as:
+  - "if"
+  - "when"
+  - "until"
+  - "only if"
+  - "otherwise"
+  - "check whether"
+
+### Data Transfer (Input / Output)
+This form represents data entering the process or leaving it.
+
+Typical use:
+- user input
+- sensor output
+- display output
+- reading from files/database
+- writing messages or values outward
+
+LLM interpretation:
+- if the task is about getting information from somewhere or showing/sending/storing information somewhere, think in terms of input/output blocks
+
+## How to Navigate the Block System
+
+The icons in RoboPhone are divided into groups of commands. Each group has its own color and reflects a different type of task. This is one of the most important selection cues in the system.
+
+The LLM should use category meaning first, and block details second.
+
+## Color Groups and What They Mean
+
+### Flow Control
+Used for the flow of the software process.
+
+Typical tasks:
+- loops
+- conditions
+- timing
+- waits
+- start/stop of tasks
+- overall control of execution
+
+Choose this group when the user is describing **how the program should run**, not what specific value should be displayed or measured.
+
+### Logic
+Used for binary and logical processing.
+
+Typical tasks:
+- boolean operations
+- true/false checks
+- binary decisions
+- bitwise logic
+
+Choose this group when the request is about:
+- conditions
+- bit logic
+- yes/no evaluation
+- logical relations between values
+
+### Math
+Used for mathematical processing.
+
+Typical tasks:
+- arithmetic
+- trigonometric functions
+- polynomial calculations
+- numeric transformations
+
+Choose this group when the request is about calculating or modeling numeric values.
+
+### Text
+Used for textual processing.
+
+Typical tasks:
+- string creation
+- concatenation
+- text comparison
+- text extraction and manipulation
+
+Choose this group when the output or input is primarily text and the task is about forming or modifying strings.
+
+### String / Pointer-Oriented Text Handling
+Used for operations that place or handle textual values in more structured ways.
+
+Choose this when the task is not just "make text", but involves more structured string placement or indexed text handling.
+
+### Virtual Display
+Used for display operations.
+
+Typical tasks:
+- graph display
+- LCD text output
+- LED/status display
+- showing values visually on screen
+
+Choose this category when the user wants to **show** information, not compute it.
+
+### Advanced Media
+Used for media output and media handling.
+
+Typical tasks:
+- sound output
+- talker / speech
+- image display
+- audio/video playback or capture
+
+Choose this category when the request involves media rather than simple visual display.
+
+### Physical Sensors
+Used for phone/device physical sensors.
+
+Typical tasks:
+- angle
+- acceleration
+- gyro-related values
+- magnetic values
+- GPS and other device-derived measurements
+
+Choose this category when the value comes from the actual smartphone/device sensors.
+
+### Virtual Sensors
+Used for user-driven or screen-based virtual inputs.
+
+Typical tasks:
+- potentiometer
+- keypad
+- joystick
+- toggles
+- switches
+- on-screen controls
+
+Choose this category when the value is simulated or entered through the interface, not measured by hardware.
+
+### Advanced Sensors
+Used for higher-level sensing.
+
+Typical tasks:
+- face-related sensing
+- color sensing
+- distance/proximity-style advanced sensing
+- richer interpreted sensor outputs
+
+Choose this category when the input is not a simple raw sensor value, but a more advanced interpreted result.
+
+### Data Operations
+Used for database and file operations.
+
+Typical tasks:
+- reading data from files
+- writing data to files
+- database read/write
+- storage upload/download
+- waiting for database values to change
+
+Choose this category when the request involves persistence, storage, or networked data state.
+
+### Robot
+Used for robot operations.
+
+Typical tasks:
+- movement
+- steering
+- motor control
+- reading robot-side sensors
+- robot naming and configuration
+- PID and motion control
+
+Choose this category when the task affects the robot body or reads robot hardware.
+
+### Parameter-Dependent Blocks
+Some blocks change appearance or color depending on the parameter type.
+
+Typical parameter types:
+- binary
+- numeric
+- textual
+- array
+
+LLM interpretation:
+- the same operation may need a different typed version depending on the value being passed
+- always match block type to the data type of the task
+
+### Macro Actions / User Routines
+Used for combining commands under one reusable name with parameters.
+
+Choose this group when the user is defining a reusable routine, abstraction, or higher-level custom action.
+
+## Settings and Configuration Context
+
+Before category-specific commands begin, the original manual also places importance on editing and configuration screens. This is useful context for block selection because some tasks are solved partly through block inputs and partly through component settings.
+
+The LLM should remember:
+
+- some displays are configured through screen/component settings
+- graph axes and appearance may be controlled in settings
+- some virtual components depend on configured ranges
+- some behavior is determined not only by the block, but also by the configured component
+
+This means the LLM should avoid assuming every variation needs a different block. In some cases:
+- the block selects the component or action
+- settings define limits, appearance, or behavior
+
+## Selection Heuristic for the LLM
+
+When reading a user request, choose blocks in this order:
+
+1. Identify the task family:
+   - flow
+   - logic
+   - math
+   - text
+   - display
+   - media
+   - sensor
+   - data/file/database
+   - robot
+   - macro
+
+2. Identify whether the task is:
+   - getting input
+   - processing data
+   - making a decision
+   - showing output
+   - storing/transferring data
+
+3. Only then choose the specific block.
+
+This mirrors how a human user would navigate RoboPhone:
+**category first, block second**.
+
+## Examples of Category-First Thinking
+
+### Example 1
+User request:
+"Measure angle and show it on screen"
+
+Mental path:
+- "measure" → sensor category
+- "angle" → physical sensor
+- "show it on screen" → virtual display
+
+So this is not a single-block task. It is:
+- read from a physical sensor block
+- pass result to a display block
+
+### Example 2
+User request:
+"If the button is pressed, play a sound"
+
+Mental path:
+- "button is pressed" → virtual sensor
+- "if" → flow control / decision
+- "play a sound" → advanced media
+
+### Example 3
+User request:
+"Record values for 10 seconds and save them"
+
+Mental path:
+- "record values" → likely graph/data acquisition or sensors
+- "10 seconds" → timing / flow control
+- "save" → data operations
+
+### Example 4
+User request:
+"Move the robot until distance becomes small"
+
+Mental path:
+- "move the robot" → robot
+- "until" → flow control / wait / condition
+- "distance becomes small" → advanced sensor or robot sensor, depending on source
+
+## What This Section Is For
+
+This section is not a block registry. Its purpose is to give the LLM the same orientation a human user gets before opening the command categories.
+
+If this context is missing, the LLM may understand individual blocks but still choose the wrong family of blocks.
+
+If this context is present, the LLM is more likely to:
+- choose the correct category first
+- understand why similarly named blocks belong to different menus
+- combine blocks correctly across sensing, logic, display, media, data, and robot actions
+- follow the original RoboPhone navigation logic instead of treating the manual as a flat schema
+
+
+
+# =========================
+# Virtual Display
+# =========================
+
+
+## Visual Mapping
+
+lcd_grid:
+  shape: rectangle
+  contains_text: [LCD, Grid]
+
+lcd_message:
+  shape: rectangle
+  contains_text: [LCD, Message]
+
+graph_draw_point:
+  shape: graph_icon
+  contains_text: [Graph]
+
+---
+
+## Instruction Templates
+
+lcd_grid:
+  - Go to Virtual Display category
+  - Select LCD Grid block
+  - Drag to workspace
+  - Set text
+  - Set line
+  - Set offset
+
+lcd_message:
+  - Go to Virtual Display category
+  - Select LCD Message block
+  - Drag to workspace
+  - Set text
+
+graph_draw_point:
+  - Go to Virtual Display category
+  - Select Graph Point block
+  - Drag to workspace
+  - Set X value
+  - Set Y value
+
+---
+
+## Atomic Tasks
+
+- input: "display hello world"
+  output_block: lcd_message
+
+- input: "display text at position"
+  output_block: lcd_grid
+
+- input: "plot value"
+  output_block: graph_draw_point
+
+---
+
+## Disambiguation
+
+lcd_grid vs lcd_message:
+  lcd_grid:
+    - precise position
+    - short text
+  lcd_message:
+    - long text
+    - no positioning
+
+---
+
+## Constraints
+
+- lcd_grid.line must be 0-3
+- lcd_grid.left_offset must be 0-19
+
 
 ## Block Registry
 
@@ -96,83 +521,6 @@ connections:
 
 ---
 
-## Visual Mapping
-
-lcd_grid:
-  shape: rectangle
-  contains_text: [LCD, Grid]
-
-lcd_message:
-  shape: rectangle
-  contains_text: [LCD, Message]
-
-graph_draw_point:
-  shape: graph_icon
-  contains_text: [Graph]
-
----
-
-## Instruction Templates
-
-lcd_grid:
-  - Go to Virtual Display category
-  - Select LCD Grid block
-  - Drag to workspace
-  - Set text
-  - Set line
-  - Set offset
-
-lcd_message:
-  - Go to Virtual Display category
-  - Select LCD Message block
-  - Drag to workspace
-  - Set text
-
-graph_draw_point:
-  - Go to Virtual Display category
-  - Select Graph Point block
-  - Drag to workspace
-  - Set X value
-  - Set Y value
-
----
-
-## Atomic Tasks
-
-- input: "display hello world"
-  output_block: lcd_message
-
-- input: "display text at position"
-  output_block: lcd_grid
-
-- input: "plot value"
-  output_block: graph_draw_point
-
----
-
-## Disambiguation
-
-lcd_grid vs lcd_message:
-  lcd_grid:
-    - precise position
-    - short text
-  lcd_message:
-    - long text
-    - no positioning
-
----
-
-## Constraints
-
-- lcd_grid.line must be 0-3
-- lcd_grid.left_offset must be 0-19
-
-
-
-
-# =========================
-# Virtual Display (Extended)
-# =========================
 
 ### led_8bit
 block_id: led_8bit
@@ -1570,23 +1918,68 @@ block_id: math_expression
 display_name: Expression (a,b,c,x)
 category: math
 
+visual_signature:
+  color: green
+  shape: value block
+  contains:
+    - white free-text formula field
+    - labels: a=, b=, c=, x=
+  example_visual_text:
+    - "x*3.1416/180 a=1 b=1 c=1 x=angleDeg"
+
 function:
-  summary: Evaluates expression using parameters
+  summary: Evaluates a custom numeric formula written as text, using input parameters a, b, c, and x.
+  use_when:
+    - the calculation is not available as a simple built-in block
+    - you need a formula such as x*3.1416/180
+    - you need to convert degrees to radians
+    - you need a polynomial or custom expression
+  prefer_over:
+    - math_operation when the formula needs more than one simple operation
+    - trig_function when preparing/scaling the x-axis before plotting
+  do_not_use_for:
+    - direct sin/cos/tan calculation → use trig_function
+
 inputs:
-  - a
-  - b
-  - c
-  - x
-  - expression_string
+  - expression_string:
+      type: string
+      required: true
+      examples:
+        - "x*3.1416/180"
+        - "a*x*x+b*x+c"
+  - a: number
+  - b: number
+  - c: number
+  - x: number_or_variable
+
 outputs:
   - number
 
-connections:
-  type: value
+common_recipes:
+  degrees_to_radians:
+    task: convert angle in degrees to radians for graph x-axis
+    expression_string: "x*3.1416/180"
+    a: 1
+    b: 1
+    c: 1
+    x: angleDeg
+    output_variable: xRad
 
-image_ref: math/expression.png
+instruction_template:
+  - Go to Math category
+  - Select Expression (a,b,c,x) block
+  - Drag it into the value slot of Set Variable
+  - Type the formula into the white text field
+  - Put the source variable into the x input
+  - Use the output as the computed value
 
----
+example:
+  task: plot sin/cos from -2pi to +2pi
+  steps:
+    - loop angleDeg from -360 to 360 by 90
+    - set xRad to math_expression "x*3.1416/180" with x=angleDeg
+    - set ySin to trig_function sin(angleDeg)
+    - draw graph point x=xRad, y=ySin
 
 ### unary_operation
 block_id: unary_operation
