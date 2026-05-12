@@ -100,6 +100,35 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertFalse(result["should_speak"])
         self.assertEqual(result["reason"], "Emotion not stable enough for a proactive response")
 
+    def test_angry_gets_teacher_response(self) -> None:
+        result = self.engine.process(
+            {
+                "emotion_signal": {
+                    "emotion": "angry",
+                    "confidence": 0.95,
+                    "source": "test",
+                    "is_stable": True,
+                }
+            }
+        )
+        self.assertTrue(result["should_speak"])
+        self.assertIn("frustrating", result["response_text"].lower())
+
+    def test_neutral_gets_teacher_response(self) -> None:
+        self.clock.advance(30)
+        result = self.engine.process(
+            {
+                "emotion_signal": {
+                    "emotion": "neutral",
+                    "confidence": 0.95,
+                    "source": "test",
+                    "is_stable": True,
+                }
+            }
+        )
+        self.assertTrue(result["should_speak"])
+        self.assertIn("next robophone step", result["response_text"].lower())
+
     def test_silent_mode_blocks_non_resume_help_response(self) -> None:
         first = self.engine.process({"speech_text": "stop responding"})
         self.assertTrue(first["should_speak"])

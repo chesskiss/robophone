@@ -162,7 +162,7 @@ class AvatarDecisionEngine:
             else perception.emotion_confidence or 0.0
         )
         is_stable = emotion_signal.is_stable if emotion_signal is not None else True
-        if confidence < 0.75:
+        if confidence < 0.45:
             return self._finalize(
                 state=state,
                 should_respond=False,
@@ -170,7 +170,7 @@ class AvatarDecisionEngine:
                 reason="Emotion confidence too low for a proactive response",
                 response_text=None,
                 mark_response=False,
-                payload={"intent": intent_name},
+                payload={"intent": intent_name, "emotion": emotion},
                 allow_silent_mode_speech=False,
             )
 
@@ -194,17 +194,29 @@ class AvatarDecisionEngine:
                 reason="Cooldown active",
                 response_text=None,
                 mark_response=False,
-                payload={"intent": intent_name},
+                payload={"intent": intent_name, "emotion": emotion},
                 allow_silent_mode_speech=False,
             )
 
-        if emotion in {"confused", "frustrated"}:
+        if emotion == "confused":
             return self._finalize(
                 state=state,
                 should_respond=True,
                 action_type="emotion_check_in",
-                reason="High-confidence confused or frustrated expression",
-                response_text="You look stuck. Do you want help with the next RoboPhone step?",
+                reason="High-confidence confused expression",
+                response_text="You look stuck on this step. Let's slow down and work through the next RoboPhone block together.",
+                mark_response=True,
+                payload={"intent": intent_name, "emotion": emotion},
+                allow_silent_mode_speech=False,
+            )
+
+        if emotion in {"frustrated", "sad"}:
+            return self._finalize(
+                state=state,
+                should_respond=True,
+                action_type="emotion_check_in",
+                reason="High-confidence frustrated or sad expression",
+                response_text="Take a breath. Focus on one small step, and I'll help you with the next part of the program.",
                 mark_response=True,
                 payload={"intent": intent_name, "emotion": emotion},
                 allow_silent_mode_speech=False,
@@ -216,7 +228,55 @@ class AvatarDecisionEngine:
                 should_respond=True,
                 action_type="encouragement",
                 reason="High-confidence positive expression",
-                response_text="Nice progress. Keep going.",
+                response_text="Nice progress. Keep building it one block at a time.",
+                mark_response=True,
+                payload={"intent": intent_name, "emotion": emotion},
+                allow_silent_mode_speech=False,
+            )
+
+        if emotion in {"fear", "surprise"}:
+            return self._finalize(
+                state=state,
+                should_respond=True,
+                action_type="emotion_check_in",
+                reason="High-confidence startled expression",
+                response_text="Something unexpected happened. Check the last block you changed, and we can fix it from there.",
+                mark_response=True,
+                payload={"intent": intent_name, "emotion": emotion},
+                allow_silent_mode_speech=False,
+            )
+
+        if emotion == "angry":
+            return self._finalize(
+                state=state,
+                should_respond=True,
+                action_type="emotion_check_in",
+                reason="High-confidence angry expression",
+                response_text="This part seems frustrating. Let's isolate the last change and fix the problem one step at a time.",
+                mark_response=True,
+                payload={"intent": intent_name, "emotion": emotion},
+                allow_silent_mode_speech=False,
+            )
+
+        if emotion == "disgust":
+            return self._finalize(
+                state=state,
+                should_respond=True,
+                action_type="emotion_check_in",
+                reason="High-confidence discomfort expression",
+                response_text="Something about that result looks off. Check the current block values, and let's verify them carefully.",
+                mark_response=True,
+                payload={"intent": intent_name, "emotion": emotion},
+                allow_silent_mode_speech=False,
+            )
+
+        if emotion == "neutral":
+            return self._finalize(
+                state=state,
+                should_respond=True,
+                action_type="emotion_check_in",
+                reason="High-confidence neutral expression",
+                response_text="Keep going. If you want, I can help you review the next RoboPhone step.",
                 mark_response=True,
                 payload={"intent": intent_name, "emotion": emotion},
                 allow_silent_mode_speech=False,

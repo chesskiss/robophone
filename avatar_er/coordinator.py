@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 
 from .decision import AvatarDecisionEngine
@@ -15,6 +15,8 @@ class AvatarLiveCoordinator:
     emotion_provider: EmotionProvider | None = None
     speech_provider: SpeechProvider | None = None
     current_task: str | None = None
+    emit_only_on_emotion_change: bool = True
+    _last_emotion_signature: tuple[str | None, bool] | None = field(default=None, init=False)
 
     def process_emotion_signal(self, emotion_signal: EmotionSignal) -> dict:
         perception = PerceptionInput(
@@ -30,7 +32,11 @@ class AvatarLiveCoordinator:
         results: list[dict] = []
         latest_emotion = self.emotion_provider.get_latest() if self.emotion_provider else None
         if latest_emotion is not None:
-            results.append(self.process_emotion_signal(latest_emotion))
+            emotion_result = self.process_emotion_signal(latest_emotion)
+            if self._should_emit_emotion(latest_emotion, emotion_result):
+                results.append(emotion_result)
+        else:
+            self._last_emotion_signature = None
 
         latest_speech = self.speech_provider.get_latest() if self.speech_provider else None
         if latest_speech is not None:
@@ -45,6 +51,23 @@ class AvatarLiveCoordinator:
             )
             results.append(self.engine.evaluate(perception).to_public_dict())
         return results
+
+    def _should_emit_emotion(self, emotion_signal: EmotionSignal, result: dict) -> bool:
+        if not emotion_signal.emotion:
+            return False
+        if not emotion_signal.is_stable:
+            return False
+
+        signature = (emotion_signal.emotion, bool(result.get("should_speak")))
+        if not self.emit_only_on_emotion_change:
+            self._last_emotion_signature = signature
+            return True
+
+        if self._last_emotion_signature == signature:
+            return False
+
+        self._last_emotion_signature = signature
+        return True
 
     def run_debug_loop(
         self,
