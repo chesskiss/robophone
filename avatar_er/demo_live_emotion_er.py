@@ -9,6 +9,7 @@ try:
 except ImportError:  # pragma: no cover - support running from inside robophone/
     from emotion_rt import EmotionCameraProvider, EmotionRTConfig
 
+from .adapters import GeminiEmotionResponseProvider
 from .coordinator import AvatarLiveCoordinator
 from .decision import AvatarDecisionEngine
 from .state import AvatarSessionStore
@@ -42,7 +43,10 @@ def main() -> int:
         )
     )
     coordinator = AvatarLiveCoordinator(
-        engine=AvatarDecisionEngine(store=AvatarSessionStore()),
+        engine=AvatarDecisionEngine(
+            store=AvatarSessionStore(),
+            emotion_response_provider=GeminiEmotionResponseProvider(),
+        ),
         emotion_provider=provider,
         current_task=args.current_task,
     )

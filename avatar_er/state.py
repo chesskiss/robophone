@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from .models import AvatarState
+from .models import AvatarState, EmotionSignal
 
 
 class AvatarSessionStore:
@@ -30,6 +30,19 @@ class AvatarSessionStore:
         self._state.recent_emotions.append(emotion)
         self._trim_history()
 
+    def record_emotion_signal(self, signal: EmotionSignal | None) -> None:
+        if signal is None or not signal.emotion:
+            return
+        self._state.recent_emotion_events.append(
+            {
+                "emotion": signal.emotion,
+                "confidence": signal.confidence,
+                "timestamp": signal.timestamp,
+                "is_stable": signal.is_stable,
+            }
+        )
+        self._trim_history()
+
     def record_speech(self, text: str | None) -> None:
         if not text:
             return
@@ -44,5 +57,6 @@ class AvatarSessionStore:
 
     def _trim_history(self) -> None:
         self._state.recent_emotions = self._state.recent_emotions[-self._history_limit :]
+        self._state.recent_emotion_events = self._state.recent_emotion_events[-self._history_limit :]
         self._state.recent_speech_texts = self._state.recent_speech_texts[-self._history_limit :]
         self._state.recent_user_commands = self._state.recent_user_commands[-self._history_limit :]

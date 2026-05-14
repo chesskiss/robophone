@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from .models import EmotionSignal, ManualQaRequest, ManualQaResponse, SpeechSignal
+from .models import (
+    EmotionResponse,
+    EmotionResponseRequest,
+    EmotionSignal,
+    ManualQaRequest,
+    ManualQaResponse,
+    SpeechSignal,
+)
 
 
 class EmotionProvider(Protocol):
@@ -21,6 +28,10 @@ class SpeechProvider(Protocol):
 
 class ManualQaProvider(Protocol):
     def answer(self, request: ManualQaRequest) -> ManualQaResponse: ...
+
+
+class EmotionResponseProvider(Protocol):
+    def answer(self, request: EmotionResponseRequest) -> EmotionResponse: ...
 
 
 class MotionProvider(Protocol):

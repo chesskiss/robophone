@@ -5,6 +5,7 @@ description = "Lightweight Groq grounding evaluation harness for Robophone docum
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "google-genai>=1.0.0",
     "groq>=0.15.0",
     "mediapipe>=0.10.35",
     "opencv-python>=4.13.0.92",

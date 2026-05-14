@@ -89,6 +89,23 @@ class ManualQaResponse:
 
 
 @dataclass(slots=True)
+class EmotionResponseRequest:
+    emotion: str
+    current_task: str | None
+    tone: Tone
+    context: dict[str, Any] = field(default_factory=dict)
+    recent_emotions: list[dict[str, Any]] = field(default_factory=list)
+    recent_speech_texts: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class EmotionResponse:
+    response_text: str
+    backend: str = "unknown"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
 class PerceptionInput:
     emotion_signal: EmotionSignal | None = None
     speech_signal: SpeechSignal | None = None
@@ -130,6 +147,7 @@ class AvatarState:
     cooldown_seconds: int = 20
     current_task: str | None = None
     recent_emotions: list[str] = field(default_factory=list)
+    recent_emotion_events: list[dict[str, Any]] = field(default_factory=list)
     recent_speech_texts: list[str] = field(default_factory=list)
     recent_user_commands: list[str] = field(default_factory=list)
     last_answered_question: str | None = None

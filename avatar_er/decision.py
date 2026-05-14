@@ -6,8 +6,8 @@ from typing import Callable
 
 from .commands import apply_command_result, interpret_command
 from .intent import classify_intent
-from .models import AvatarState, DecisionResult, ManualQaRequest, PerceptionInput
-from .providers import ManualQaProvider
+from .models import AvatarState, DecisionResult, EmotionResponseRequest, ManualQaRequest, PerceptionInput
+from .providers import EmotionResponseProvider, ManualQaProvider
 from .response import format_spoken_response
 from .state import AvatarSessionStore
 
@@ -17,10 +17,12 @@ class AvatarDecisionEngine:
         self,
         store: AvatarSessionStore | None = None,
         manual_qa_provider: ManualQaProvider | None = None,
+        emotion_response_provider: EmotionResponseProvider | None = None,
         clock: Callable[[], float] | None = None,
     ):
         self.store = store or AvatarSessionStore()
         self.manual_qa_provider = manual_qa_provider
+        self.emotion_response_provider = emotion_response_provider
         self.clock = clock or time.time
 
     def process(self, perception_payload: dict) -> dict:
@@ -35,10 +37,12 @@ class AvatarDecisionEngine:
             state.current_task = perception.current_task
         if perception.emotion_signal and perception.emotion_signal.emotion:
             self.store.record_emotion(perception.emotion_signal.emotion)
+            self.store.record_emotion_signal(perception.emotion_signal)
         elif perception.emotion:
             self.store.record_emotion(perception.emotion)
         if perception.speech_signal and perception.speech_signal.text:
             self.store.record_speech(perception.speech_signal.text)
+        state = self.store.get_state()
 
         speech_text = (perception.speech_signal.text if perception.speech_signal else perception.speech_text or "").strip()
         intent = classify_intent(speech_text, state)
@@ -204,7 +208,12 @@ class AvatarDecisionEngine:
                 should_respond=True,
                 action_type="emotion_check_in",
                 reason="High-confidence confused expression",
-                response_text="You look stuck on this step. Let's slow down and work through the next RoboPhone block together.",
+                response_text=self._generate_emotion_response(
+                    state=state,
+                    emotion=emotion,
+                    perception=perception,
+                    fallback="You look stuck on this step. Let's slow down and work through the next RoboPhone block together.",
+                ),
                 mark_response=True,
                 payload={"intent": intent_name, "emotion": emotion},
                 allow_silent_mode_speech=False,
@@ -216,7 +225,12 @@ class AvatarDecisionEngine:
                 should_respond=True,
                 action_type="emotion_check_in",
                 reason="High-confidence frustrated or sad expression",
-                response_text="Take a breath. Focus on one small step, and I'll help you with the next part of the program.",
+                response_text=self._generate_emotion_response(
+                    state=state,
+                    emotion=emotion,
+                    perception=perception,
+                    fallback="Take a breath. Focus on one small step, and I'll help you with the next part of the program.",
+                ),
                 mark_response=True,
                 payload={"intent": intent_name, "emotion": emotion},
                 allow_silent_mode_speech=False,
@@ -228,7 +242,12 @@ class AvatarDecisionEngine:
                 should_respond=True,
                 action_type="encouragement",
                 reason="High-confidence positive expression",
-                response_text="Nice progress. Keep building it one block at a time.",
+                response_text=self._generate_emotion_response(
+                    state=state,
+                    emotion=emotion,
+                    perception=perception,
+                    fallback="Nice progress. Keep building it one block at a time.",
+                ),
                 mark_response=True,
                 payload={"intent": intent_name, "emotion": emotion},
                 allow_silent_mode_speech=False,
@@ -240,7 +259,12 @@ class AvatarDecisionEngine:
                 should_respond=True,
                 action_type="emotion_check_in",
                 reason="High-confidence startled expression",
-                response_text="Something unexpected happened. Check the last block you changed, and we can fix it from there.",
+                response_text=self._generate_emotion_response(
+                    state=state,
+                    emotion=emotion,
+                    perception=perception,
+                    fallback="Something unexpected happened. Check the last block you changed, and we can fix it from there.",
+                ),
                 mark_response=True,
                 payload={"intent": intent_name, "emotion": emotion},
                 allow_silent_mode_speech=False,
@@ -252,7 +276,12 @@ class AvatarDecisionEngine:
                 should_respond=True,
                 action_type="emotion_check_in",
                 reason="High-confidence angry expression",
-                response_text="This part seems frustrating. Let's isolate the last change and fix the problem one step at a time.",
+                response_text=self._generate_emotion_response(
+                    state=state,
+                    emotion=emotion,
+                    perception=perception,
+                    fallback="This part seems frustrating. Let's isolate the last change and fix the problem one step at a time.",
+                ),
                 mark_response=True,
                 payload={"intent": intent_name, "emotion": emotion},
                 allow_silent_mode_speech=False,
@@ -264,7 +293,12 @@ class AvatarDecisionEngine:
                 should_respond=True,
                 action_type="emotion_check_in",
                 reason="High-confidence discomfort expression",
-                response_text="Something about that result looks off. Check the current block values, and let's verify them carefully.",
+                response_text=self._generate_emotion_response(
+                    state=state,
+                    emotion=emotion,
+                    perception=perception,
+                    fallback="Something about that result looks off. Check the current block values, and let's verify them carefully.",
+                ),
                 mark_response=True,
                 payload={"intent": intent_name, "emotion": emotion},
                 allow_silent_mode_speech=False,
@@ -276,7 +310,12 @@ class AvatarDecisionEngine:
                 should_respond=True,
                 action_type="emotion_check_in",
                 reason="High-confidence neutral expression",
-                response_text="Keep going. If you want, I can help you review the next RoboPhone step.",
+                response_text=self._generate_emotion_response(
+                    state=state,
+                    emotion=emotion,
+                    perception=perception,
+                    fallback="Keep going. If you want, I can help you review the next RoboPhone step.",
+                ),
                 mark_response=True,
                 payload={"intent": intent_name, "emotion": emotion},
                 allow_silent_mode_speech=False,
@@ -329,3 +368,27 @@ class AvatarDecisionEngine:
         if state.last_response_timestamp is None:
             return True
         return (self.clock() - state.last_response_timestamp) >= state.cooldown_seconds
+
+    def _generate_emotion_response(
+        self,
+        state: AvatarState,
+        emotion: str,
+        perception: PerceptionInput,
+        fallback: str,
+    ) -> str:
+        if self.emotion_response_provider is None:
+            return fallback
+        try:
+            response = self.emotion_response_provider.answer(
+                EmotionResponseRequest(
+                    emotion=emotion,
+                    current_task=state.current_task,
+                    tone=state.tone,
+                    context=perception.to_dict(),
+                    recent_emotions=list(state.recent_emotion_events),
+                    recent_speech_texts=list(state.recent_speech_texts),
+                )
+            )
+        except Exception:
+            return fallback
+        return response.response_text or fallback

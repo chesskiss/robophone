@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from robophone.avatar_er.decision import AvatarDecisionEngine
-from robophone.avatar_er.models import ManualQaRequest, ManualQaResponse
+from robophone.avatar_er.models import EmotionResponse, EmotionResponseRequest, ManualQaRequest, ManualQaResponse
 from robophone.avatar_er.state import AvatarSessionStore
 
 
@@ -24,6 +24,22 @@ class MockManualQaProvider:
         return ManualQaResponse(answer_text="Start with the graph block, then connect sine input.")
 
 
+class MockEmotionResponseProvider:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def answer(self, request: EmotionResponseRequest) -> EmotionResponse:
+        self.calls.append(
+            {
+                "emotion": request.emotion,
+                "recent_emotions": request.recent_emotions,
+                "recent_speech_texts": request.recent_speech_texts,
+                "current_task": request.current_task,
+            }
+        )
+        return EmotionResponse(response_text=f"LLM teacher response for {request.emotion}.")
+
+
 class FakeClock:
     def __init__(self, start: float = 1000.0) -> None:
         self.now = start
@@ -39,9 +55,11 @@ class DecisionEngineTests(unittest.TestCase):
     def setUp(self) -> None:
         self.clock = FakeClock()
         self.manual = MockManualQaProvider()
+        self.emotion_responder = MockEmotionResponseProvider()
         self.engine = AvatarDecisionEngine(
             store=AvatarSessionStore(),
             manual_qa_provider=self.manual,
+            emotion_response_provider=self.emotion_responder,
             clock=self.clock,
         )
 
@@ -112,7 +130,7 @@ class DecisionEngineTests(unittest.TestCase):
             }
         )
         self.assertTrue(result["should_speak"])
-        self.assertIn("frustrating", result["response_text"].lower())
+        self.assertIn("llm teacher response for angry", result["response_text"].lower())
 
     def test_neutral_gets_teacher_response(self) -> None:
         self.clock.advance(30)
@@ -127,7 +145,35 @@ class DecisionEngineTests(unittest.TestCase):
             }
         )
         self.assertTrue(result["should_speak"])
-        self.assertIn("next robophone step", result["response_text"].lower())
+        self.assertIn("llm teacher response for neutral", result["response_text"].lower())
+
+    def test_emotion_responder_receives_history(self) -> None:
+        self.engine.process(
+            {
+                "emotion_signal": {
+                    "emotion": "happy",
+                    "confidence": 0.95,
+                    "source": "test",
+                    "is_stable": True,
+                    "timestamp": 1010.0,
+                }
+            }
+        )
+        self.clock.advance(30)
+        self.engine.process(
+            {
+                "emotion_signal": {
+                    "emotion": "sad",
+                    "confidence": 0.95,
+                    "source": "test",
+                    "is_stable": True,
+                    "timestamp": 1040.0,
+                }
+            }
+        )
+        last_call = self.emotion_responder.calls[-1]
+        self.assertEqual(last_call["emotion"], "sad")
+        self.assertGreaterEqual(len(last_call["recent_emotions"]), 2)
 
     def test_silent_mode_blocks_non_resume_help_response(self) -> None:
         first = self.engine.process({"speech_text": "stop responding"})
