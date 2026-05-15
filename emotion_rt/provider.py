@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import Counter, deque
+from statistics import mean
 
 try:
     from robophone.avatar_er.models import EmotionSignal
@@ -49,7 +50,7 @@ class EmotionCameraProvider:
             )
         )
         self._face_refiner = FaceRefiner(enabled=False, prefer_face_box=True)
-        self._history: deque[str] = deque(maxlen=config.stability_window)
+        self._history: deque[tuple[str, float]] = deque(maxlen=config.stability_window)
 
     def get_latest(self) -> EmotionSignal | None:
         ok, frame = self._camera.read()
@@ -67,16 +68,20 @@ class EmotionCameraProvider:
             return None
 
         prediction = self.backend.predict(face_crop)
-        self._history.append(prediction.emotion)
-        stable_label, stable_count = self._stability_vote()
+        self._history.append((prediction.emotion, prediction.confidence))
+        stable_label, stable_count, stable_confidence, history_size = self._stability_vote()
         is_stable = (
-            prediction.confidence >= self.config.confidence_threshold
-            and stable_label == prediction.emotion
+            stable_label is not None
+            and history_size > 0
+            and stable_count > (history_size / 2.0)
+            and stable_confidence >= self.config.confidence_threshold
             and stable_count >= self.config.min_stable_count
         )
+        emitted_emotion = stable_label if is_stable else prediction.emotion
+        emitted_confidence = stable_confidence if is_stable else prediction.confidence
         return EmotionSignal(
-            emotion=prediction.emotion,
-            confidence=prediction.confidence,
+            emotion=emitted_emotion,
+            confidence=emitted_confidence,
             timestamp=time.time(),
             face_bbox=(x1, y1, x2, y2),
             source="robophone.emotion_rt",
@@ -88,12 +93,14 @@ class EmotionCameraProvider:
         self._camera.release()
         self._face_refiner.close()
 
-    def _stability_vote(self) -> tuple[str | None, int]:
+    def _stability_vote(self) -> tuple[str | None, int, float, int]:
         if not self._history:
-            return None, 0
-        counter = Counter(self._history)
+            return None, 0, 0.0, 0
+        labels = [label for label, _ in self._history]
+        counter = Counter(labels)
         label, count = counter.most_common(1)[0]
-        return label, count
+        label_confidences = [confidence for candidate_label, confidence in self._history if candidate_label == label]
+        return label, count, float(mean(label_confidences)), len(self._history)
 
     def _build_backend(self, config: EmotionRTConfig) -> object:
         if config.backend_type == "hf_vit":

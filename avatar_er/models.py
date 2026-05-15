@@ -100,6 +100,8 @@ class EmotionResponseRequest:
     context: dict[str, Any] = field(default_factory=dict)
     recent_emotions: list[dict[str, Any]] = field(default_factory=list)
     recent_speech_texts: list[str] = field(default_factory=list)
+    last_teacher_prompt: str | None = None
+    follow_up_style: Literal["question", "statement"] = "question"
 
 
 @dataclass(slots=True)
@@ -217,6 +219,7 @@ class AvatarState:
     last_stable_emotion_value: str | None = None
     last_stable_emotion_acknowledged: str | None = None
     effective_cooldown_until: float | None = None
+    next_emotion_follow_up_style: Literal["question", "statement"] = "question"
     pending_child_inputs: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:

@@ -601,6 +601,8 @@ class AvatarDecisionEngine:
                     context=perception.to_dict(),
                     recent_emotions=list(state.recent_emotion_events),
                     recent_speech_texts=list(state.recent_speech_texts),
+                    last_teacher_prompt=state.last_teacher_prompt,
+                    follow_up_style=state.next_emotion_follow_up_style,
                 )
             )
         except Exception:
@@ -781,9 +783,13 @@ class AvatarDecisionEngine:
         if emotion in {"fear", "surprise"}:
             return "Something seems unexpected. Let's check the last thing that changed and make sense of it."
         if emotion == "disgust":
-            return "That result seems off. Let's inspect the current values carefully before changing anything else."
+            if streak >= 2:
+                return "You still seem uncomfortable. I won't keep pushing, but if something feels off, tell me."
+            return "You seem a bit uncomfortable. Is everything okay?"
         if emotion == "neutral":
-            return "You seem focused. I'll stay quiet unless you want help with the next step."
+            if state.last_teacher_prompt:
+                return "You seem fairly steady right now. I'm here if you want help."
+            return "You seem fairly steady right now."
         return "Tell me what part you want to work through next, and we'll take it one step at a time."
 
     def _should_suppress_repeated_emotion_checkin(self, state: AvatarState, emotion: str) -> bool:
@@ -851,4 +857,7 @@ class AvatarDecisionEngine:
             updated.last_proactive_turn_timestamp = now
             updated.last_stable_emotion_acknowledged = updated.last_stable_emotion_value
             updated.effective_cooldown_until = now + float(updated.cooldown_seconds)
+            updated.next_emotion_follow_up_style = (
+                "statement" if updated.next_emotion_follow_up_style == "question" else "question"
+            )
         return updated

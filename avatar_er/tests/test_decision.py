@@ -47,6 +47,8 @@ class MockEmotionResponseProvider:
                 "recent_emotions": request.recent_emotions,
                 "recent_speech_texts": request.recent_speech_texts,
                 "current_task": request.current_task,
+                "follow_up_style": request.follow_up_style,
+                "last_teacher_prompt": request.last_teacher_prompt,
             }
         )
         return EmotionResponse(response_text=f"LLM teacher response for {request.emotion}.", backend="gemini")
@@ -422,6 +424,31 @@ class DecisionEngineTests(unittest.TestCase):
         last_call = self.emotion_responder.calls[-1]
         self.assertEqual(last_call["emotion"], "sad")
         self.assertGreaterEqual(len(last_call["recent_emotions"]), 2)
+
+    def test_proactive_emotion_follow_up_style_alternates(self) -> None:
+        self.engine.process(
+            {
+                "emotion_signal": {
+                    "emotion": "sad",
+                    "confidence": 0.95,
+                    "source": "test",
+                    "is_stable": True,
+                }
+            }
+        )
+        self.clock.advance(30)
+        self.engine.process(
+            {
+                "emotion_signal": {
+                    "emotion": "happy",
+                    "confidence": 0.95,
+                    "source": "test",
+                    "is_stable": True,
+                }
+            }
+        )
+        self.assertEqual(self.emotion_responder.calls[0]["follow_up_style"], "question")
+        self.assertEqual(self.emotion_responder.calls[1]["follow_up_style"], "statement")
 
     def test_silent_mode_blocks_non_resume_help_response(self) -> None:
         first = self.engine.process({"speech_text": "stop responding"})

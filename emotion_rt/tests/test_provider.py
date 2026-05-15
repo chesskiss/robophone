@@ -38,6 +38,16 @@ class FakeFaceRefiner:
         return None
 
 
+class SequenceEmotionBackend:
+    def __init__(self, predictions) -> None:
+        self.predictions = list(predictions)
+
+    def predict(self, face_crop):
+        if not self.predictions:
+            raise RuntimeError("No predictions left.")
+        return self.predictions.pop(0)
+
+
 class EmotionProviderTests(unittest.TestCase):
     def test_stability_requires_majority_vote(self) -> None:
         import numpy as np
@@ -60,6 +70,35 @@ class EmotionProviderTests(unittest.TestCase):
         self.assertFalse(first.is_stable)
         self.assertFalse(second.is_stable)
         self.assertTrue(third.is_stable)
+
+    def test_majority_sadness_survives_intermittent_neutral_noise(self) -> None:
+        import numpy as np
+
+        from robophone.emotion_rt.backends import EmotionPrediction
+        from robophone.emotion_rt.provider import EmotionCameraProvider
+
+        provider = EmotionCameraProvider.__new__(EmotionCameraProvider)
+        provider.config = EmotionRTConfig(stability_window=3, min_stable_count=2, confidence_threshold=0.55)
+        provider.backend = SequenceEmotionBackend(
+            [
+                EmotionPrediction(emotion="sad", confidence=0.9, logits=[0.9]),
+                EmotionPrediction(emotion="sad", confidence=0.88, logits=[0.88]),
+                EmotionPrediction(emotion="neutral", confidence=0.8, logits=[0.8]),
+            ]
+        )
+        provider._camera = FakeCamera([np.ones((10, 10, 3), dtype="uint8") for _ in range(3)])
+        provider._face_refiner = FakeFaceRefiner([FakeFaceBox((0, 0, 5, 5)) for _ in range(3)])
+        from collections import deque
+
+        provider._history = deque(maxlen=provider.config.stability_window)
+
+        provider.get_latest()
+        provider.get_latest()
+        third = provider.get_latest()
+
+        self.assertIsNotNone(third)
+        self.assertTrue(third.is_stable)
+        self.assertEqual(third.emotion, "sad")
 
 
 if __name__ == "__main__":

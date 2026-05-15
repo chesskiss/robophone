@@ -122,17 +122,25 @@ class GeminiEmotionResponseProvider(EmotionResponseProvider):
         )
 
     def _build_prompt(self, request: EmotionResponseRequest) -> str:
+        follow_up_instruction = (
+            "End with one short, natural question."
+            if request.follow_up_style == "question"
+            else "Do not end with a question. End with a short, calm statement."
+        )
         return (
             "You are a RoboPhone classroom teacher assistant. "
             "Respond in 1-2 short sentences for a student based on their current facial emotion. "
             "Stay task-focused, supportive, and instructional. "
             "Do not sound like a therapist. "
             "Do not mention confidence scores or say you are detecting emotions. "
+            "If the student seems sad, treat that as more important than brief neutral noise in the recent history. "
             f"Current task: {request.current_task or 'unspecified RoboPhone task'}.\n"
             f"Current emotion: {request.emotion}.\n"
             f"Recent emotion history: {request.recent_emotions}.\n"
             f"Recent speech snippets: {request.recent_speech_texts}.\n"
+            f"Last teacher prompt: {request.last_teacher_prompt or 'none'}.\n"
             f"Additional context: {request.context}.\n"
+            f"Follow-up style requirement: {follow_up_instruction}\n"
             "Return only the teacher response text."
         )
 
