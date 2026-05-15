@@ -1,2821 +1,3164 @@
-Below is context you should use to provide answers to the request/questions that were given to you in the prompt about how to build program using the blockly-based Robophone framework. 
-Make the answer concise, and include ONLY the list of steps and commands needed to create the code.
+# Robophone LLM Manual – Enhanced Complete Block Guide
 
-# Robophone LLM Manual – Foundations and Navigation
+This file is designed to help an LLM choose correct RoboPhone/Blockly blocks and produce step-by-step instructions for a beginner user.
+
+## Required Answer Style for LLMs
+
+When answering user requests based on this manual:
+- Output only the ordered list of steps/commands needed to build the program.
+- Name the category/group first, then the exact block to drag.
+- Explain where to place the block: inside `on start`, inside a loop `do` area, inside an `if` branch, or inside a value socket.
+- Use only blocks described in this manual unless the user provides a screenshot or additional source.
+- Prefer exact block names and exact field values.
+- For 12-year-old/beginner guidance, include drag/click instructions and where each block connects.
+
+---
+
+# Foundations and Navigation
 
 ## What RoboPhone Is
 
-RoboPhone is a visual programming environment used in the Robophysics program to build executable experiments and interactive systems using predefined blocks. The blocks represent actions, calculations, sensors, displays, media, communication, files, robot control, and higher-level routines.
+RoboPhone is a visual programming environment used in Robophysics to build executable experiments and interactive systems using predefined blocks. The blocks represent actions, calculations, sensors, displays, media, communication, files, robot control, and reusable routines.
 
-For an LLM, the important idea is not only what each block does in isolation, but how a human user would discover and choose blocks while building a task. The manual should therefore preserve the original logic of the system: blocks are grouped by purpose, each group has a visual identity, and users navigate by category first, then by the needed block.
+LLM selection rule: think like a human Blockly user. Choose the block category first, then the specific block.
 
-## Why the Graphic Language Matters
-
-The RoboPhone software language is meant to work together with the written explanation. A user understands the system by triangulating between:
-
-- the written description
-- the block/category structure
-- the visual programming language itself
-
-This matters for block selection. In RoboPhone, users do not start by thinking in code syntax. They start by asking:
-
-- Is this a display task?
-- Is this a sensor-reading task?
-- Is this logic or math?
-- Is this file/database work?
-- Is this a robot command?
-- Is this a macro / reusable routine?
-
-The LLM should follow that same mental path.
-
-## How to Interpret the Flowchart Language
-
-The visual language follows flowchart logic. This is important because many block choices are easier to make when the LLM understands the role of a block in the execution flow.
+## Flowchart Meaning
 
 ### Start / End
-Use this form for the first and last step in a process.
-
-LLM interpretation:
-- choose these for entering or closing a program/task flow
-- these define execution boundaries, not computation
+Use for the beginning or ending boundary of a program.
 
 ### Data Processing / Process
-This is the standard processing step in a flow.
-
-Typical use:
-- arithmetic operations
-- logical calculations
-- variable handling
-- arrays
-- parameter manipulation
-- general transformation of values
-
-LLM interpretation:
-- if the task is "compute", "set", "transform", "calculate", or "update", the relevant block is usually a processing block
+Use for calculations, variable updates, lists, arrays, expressions, or transformations.
 
 ### Decision
-This form represents a branching point where the next step depends on a result.
-
-Typical use:
-- if
-- if/else
-- comparisons
-- boolean checks
-- wait-until-true logic
-
-LLM interpretation:
-- choose decision-style blocks when the request includes conditions such as:
-  - "if"
-  - "when"
-  - "until"
-  - "only if"
-  - "otherwise"
-  - "check whether"
-
-### Data Transfer (Input / Output)
-This form represents data entering the process or leaving it.
-
-Typical use:
-- user input
-- sensor output
-- display output
-- reading from files/database
-- writing messages or values outward
-
-LLM interpretation:
-- if the task is about getting information from somewhere or showing/sending/storing information somewhere, think in terms of input/output blocks
-
-## How to Navigate the Block System
-
-The icons in RoboPhone are divided into groups of commands. Each group has its own color and reflects a different type of task. This is one of the most important selection cues in the system.
-
-The LLM should use category meaning first, and block details second.
-
-## Color Groups and What They Mean
-
-### Flow Control
-Used for the flow of the software process.
-
-Typical tasks:
-- loops
-- conditions
-- timing
-- waits
-- start/stop of tasks
-- overall control of execution
-
-Choose this group when the user is describing **how the program should run**, not what specific value should be displayed or measured.
-
-### Logic
-Used for binary and logical processing.
-
-Typical tasks:
-- boolean operations
-- true/false checks
-- binary decisions
-- bitwise logic
-
-Choose this group when the request is about:
-- conditions
-- bit logic
-- yes/no evaluation
-- logical relations between values
-
-### Math
-Used for mathematical processing.
-
-Typical tasks:
-- arithmetic
-- trigonometric functions
-- polynomial calculations
-- numeric transformations
-
-Choose this group when the request is about calculating or modeling numeric values.
-
-### Text
-Used for textual processing.
-
-Typical tasks:
-- string creation
-- concatenation
-- text comparison
-- text extraction and manipulation
-
-Choose this group when the output or input is primarily text and the task is about forming or modifying strings.
-
-### String / Pointer-Oriented Text Handling
-Used for operations that place or handle textual values in more structured ways.
-
-Choose this when the task is not just "make text", but involves more structured string placement or indexed text handling.
-
-### Virtual Display
-Used for display operations.
-
-Typical tasks:
-- graph display
-- LCD text output
-- LED/status display
-- showing values visually on screen
-
-Choose this category when the user wants to **show** information, not compute it.
-
-### Advanced Media
-Used for media output and media handling.
-
-Typical tasks:
-- sound output
-- talker / speech
-- image display
-- audio/video playback or capture
-
-Choose this category when the request involves media rather than simple visual display.
-
-### Physical Sensors
-Used for phone/device physical sensors.
-
-Typical tasks:
-- angle
-- acceleration
-- gyro-related values
-- magnetic values
-- GPS and other device-derived measurements
-
-Choose this category when the value comes from the actual smartphone/device sensors.
-
-### Virtual Sensors
-Used for user-driven or screen-based virtual inputs.
-
-Typical tasks:
-- potentiometer
-- keypad
-- joystick
-- toggles
-- switches
-- on-screen controls
-
-Choose this category when the value is simulated or entered through the interface, not measured by hardware.
-
-### Advanced Sensors
-Used for higher-level sensing.
-
-Typical tasks:
-- face-related sensing
-- color sensing
-- distance/proximity-style advanced sensing
-- richer interpreted sensor outputs
-
-Choose this category when the input is not a simple raw sensor value, but a more advanced interpreted result.
-
-### Data Operations
-Used for database and file operations.
-
-Typical tasks:
-- reading data from files
-- writing data to files
-- database read/write
-- storage upload/download
-- waiting for database values to change
-
-Choose this category when the request involves persistence, storage, or networked data state.
-
-### Robot
-Used for robot operations.
-
-Typical tasks:
-- movement
-- steering
-- motor control
-- reading robot-side sensors
-- robot naming and configuration
-- PID and motion control
-
-Choose this category when the task affects the robot body or reads robot hardware.
-
-### Parameter-Dependent Blocks
-Some blocks change appearance or color depending on the parameter type.
-
-Typical parameter types:
-- binary
-- numeric
-- textual
-- array
-
-LLM interpretation:
-- the same operation may need a different typed version depending on the value being passed
-- always match block type to the data type of the task
-
-### Macro Actions / User Routines
-Used for combining commands under one reusable name with parameters.
-
-Choose this group when the user is defining a reusable routine, abstraction, or higher-level custom action.
-
-## Settings and Configuration Context
-
-Before category-specific commands begin, the original manual also places importance on editing and configuration screens. This is useful context for block selection because some tasks are solved partly through block inputs and partly through component settings.
-
-The LLM should remember:
-
-- some displays are configured through screen/component settings
-- graph axes and appearance may be controlled in settings
-- some virtual components depend on configured ranges
-- some behavior is determined not only by the block, but also by the configured component
-
-This means the LLM should avoid assuming every variation needs a different block. In some cases:
-- the block selects the component or action
-- settings define limits, appearance, or behavior
-
-## Selection Heuristic for the LLM
-
-When reading a user request, choose blocks in this order:
-
-1. Identify the task family:
-   - flow
-   - logic
-   - math
-   - text
-   - display
-   - media
-   - sensor
-   - data/file/database
-   - robot
-   - macro
-
-2. Identify whether the task is:
-   - getting input
-   - processing data
-   - making a decision
-   - showing output
-   - storing/transferring data
-
-3. Only then choose the specific block.
-
-This mirrors how a human user would navigate RoboPhone:
-**category first, block second**.
-
-## Examples of Category-First Thinking
-
-### Example 1
-User request:
-"Measure angle and show it on screen"
-
-Mental path:
-- "measure" → sensor category
-- "angle" → physical sensor
-- "show it on screen" → virtual display
-
-So this is not a single-block task. It is:
-- read from a physical sensor block
-- pass result to a display block
-
-### Example 2
-User request:
-"If the button is pressed, play a sound"
-
-Mental path:
-- "button is pressed" → virtual sensor
-- "if" → flow control / decision
-- "play a sound" → advanced media
-
-### Example 3
-User request:
-"Record values for 10 seconds and save them"
-
-Mental path:
-- "record values" → likely graph/data acquisition or sensors
-- "10 seconds" → timing / flow control
-- "save" → data operations
-
-### Example 4
-User request:
-"Move the robot until distance becomes small"
-
-Mental path:
-- "move the robot" → robot
-- "until" → flow control / wait / condition
-- "distance becomes small" → advanced sensor or robot sensor, depending on source
-
-## What This Section Is For
-
-This section is not a block registry. Its purpose is to give the LLM the same orientation a human user gets before opening the command categories.
-
-If this context is missing, the LLM may understand individual blocks but still choose the wrong family of blocks.
-
-If this context is present, the LLM is more likely to:
-- choose the correct category first
-- understand why similarly named blocks belong to different menus
-- combine blocks correctly across sensing, logic, display, media, data, and robot actions
-- follow the original RoboPhone navigation logic instead of treating the manual as a flat schema
-
-
-
-# =========================
-# Virtual Display
-# =========================
-
-
-## Visual Mapping
-
-lcd_grid:
-  shape: rectangle
-  contains_text: [LCD, Grid]
-
-lcd_message:
-  shape: rectangle
-  contains_text: [LCD, Message]
-
-graph_draw_point:
-  shape: graph_icon
-  contains_text: [Graph]
+Use for `if`, `if/else`, comparisons, boolean checks, and wait-until conditions.
+
+### Data Transfer / Input-Output
+Use for inputs, sensor readings, display outputs, files, database, SMS, speech, and graph output.
+
+## Category-First Selection Heuristic
+
+1. Identify task family:
+   - flow, logic, math, text, display, media, sensor, data/file/database, robot, macro/custom block.
+2. Identify action role:
+   - get input, process data, make a decision, show output, store/send data.
+3. Choose exact block.
+4. Check data types:
+   - numeric, string, boolean, list, statement, value block.
+5. Check placement:
+   - root container, statement chain, loop body, if branch, or value socket.
+
+## Universal Block Documentation Format
+
+Each block entry uses this pattern:
+
+```yaml
+block_id: stable identifier
+block_name: visible Blockly name
+category: grouping element/menu to click
+type: statement | value | container | root | bool | multi-output
+visual_signature: what the block looks like in screenshots
+function:
+  summary: what it does
+  use_when: when to choose this block
+  avoid_when: nearby blocks that are better for other tasks
+inputs: exact sockets/fields
+outputs: returned value, if any
+instruction_template: beginner UI steps
+example_task: canonical use
+```
+
+## Important Graphing Rules
+
+- Use `Graph Draw Point` inside a loop to draw functions point-by-point.
+- Use `Reset Graph` before the loop to prevent graph accumulation between runs.
+- Leave the `clear?` checkbox unchecked while drawing a curve; otherwise each new point may erase previous points.
+- Trigonometric block input is in degrees.
+- When the user asks for the x-axis in radians, loop over degrees for trig calculation and convert degrees to radians for graph X using `math_expression`:
+  - `xRad = x*3.1416/180` with `x = angleDeg`.
+
+## Common Recipes
+
+### Plot sin/cos with radians on x-axis
+
+```yaml
+recipe_id: plot_trig_radian_x_axis
+steps:
+  - Start Program / on start
+  - Reset Graph red and blue before plotting
+  - Repeat and Increment angleDeg from -360 to 360 by 90 for -2pi..2pi in 0.5pi steps
+  - Set xRad using math_expression: "x*3.1416/180", x=angleDeg
+  - Set ySin using trig_function sin(angleDeg)
+  - Draw Graph Point x=xRad y=ySin color=red clear=false
+  - Set yCos using trig_function cos(angleDeg)
+  - Draw Graph Point x=xRad y=yCos color=blue clear=false
+```
+
+### Clear graph before rerun
+
+```yaml
+recipe_id: clear_graph_before_rerun
+steps:
+  - Place Reset Graph color blocks before any loop that draws points
+  - Reset each color that will be reused
+  - Do not rely on Graph Draw Point to clear old runs
+```
 
 ---
 
-## Instruction Templates
+# Virtual Display
 
-lcd_grid:
-  - Go to Virtual Display category
-  - Select LCD Grid block
-  - Drag to workspace
-  - Set text
-  - Set line
-  - Set offset
+Use for anything the user wants to show visually: LCD text, graph points, LED status, bars, saved/loaded graphs.
 
-lcd_message:
-  - Go to Virtual Display category
-  - Select LCD Message block
-  - Drag to workspace
-  - Set text
+## LCD Grid
 
-graph_draw_point:
-  - Go to Virtual Display category
-  - Select Graph Point block
-  - Drag to workspace
+```yaml
+block_id: lcd_grid
+block_name: LCD Grid
+category: virtual_display
+type: statement
+visual_signature: light blue rectangular LCD block; contains text similar to 'lcd grid write'; has text, line, offset, color, size inputs
+function:
+  summary: Displays short text at an exact row/column on the 4x20 LCD display.
+  use_when:
+    - display short text
+    - place text at a specific line/offset
+    - label a graph or screen component
+  avoid_when:
+    - long multi-line messages → use lcd_message
+    - graphing values → use graph_draw_point
+inputs:
+  - text: string
+  - line: number 0-3
+  - left_offset: number 0-19
+  - color: red/yellow/green/blue
+  - size: small/large
+outputs: none
+instruction_template:
+  - Go to Virtual Display
+  - Drag LCD Grid / lcd grid write into the program
+  - Put the text in the text socket
+  - Set line, offset, color, and size
+example_task: Display label 'sin' at line 0 offset 0 in red.
+```
+
+## LCD Message
+
+```yaml
+block_id: lcd_message
+block_name: LCD Message
+category: virtual_display
+type: statement
+visual_signature: light blue LCD message block; no row/column sockets; used for larger text areas
+function:
+  summary: Displays a larger text message without choosing exact row/column.
+  use_when:
+    - display long text
+    - show explanations
+    - show status messages
+  avoid_when:
+    - precise row/offset placement → use lcd_grid
+inputs:
+  - text: string
+  - color: red/yellow/green/blue
+  - size: small/large
+outputs: none
+instruction_template:
+  - Go to Virtual Display
+  - Drag LCD Message
+  - Put the message text into the text input
+  - Choose color/size if available
+example_task: Display 'Program complete'.
+```
+
+## Graph Draw Point
+
+```yaml
+block_id: graph_draw_point
+block_name: Graph Draw Point
+category: virtual_display
+type: statement
+visual_signature: light blue graph block; contains 'draw graph point ( x , y ) with color ... clear?'
+function:
+  summary: Draws one (x,y) point on the graph display. Repeating it in a loop creates a curve.
+  use_when:
+    - plot functions
+    - plot sensor data
+    - draw multiple colored graph series
+  avoid_when:
+    - automatic sensor acquisition over time → use graph_draw_on
+inputs:
+  - x: number
+  - y: number
+  - point_color: red/yellow/green/blue
+  - clear_graph_after_point: boolean checkbox
+outputs: none
+instruction_template:
+  - Go to Virtual Display
+  - Drag Draw Graph Point into the loop
   - Set X value
   - Set Y value
+  - Choose graph color
+  - Leave clear unchecked when drawing many points
+example_task: Inside a loop, draw graph point x=xRad, y=ySin, color=red.
+important_note: use inside a loop; keep clear? unchecked while drawing a curve
+```
 
----
+## 8LED
 
-## Atomic Tasks
-
-- input: "display hello world"
-  output_block: lcd_message
-
-- input: "display text at position"
-  output_block: lcd_grid
-
-- input: "plot value"
-  output_block: graph_draw_point
-
----
-
-## Disambiguation
-
-lcd_grid vs lcd_message:
-  lcd_grid:
-    - precise position
-    - short text
-  lcd_message:
-    - long text
-    - no positioning
-
----
-
-## Constraints
-
-- lcd_grid.line must be 0-3
-- lcd_grid.left_offset must be 0-19
-
-
-## Block Registry
-
-### lcd_grid
-block_id: lcd_grid
-category: virtual_display
-
-visual:
-  description: 4x20 LCD display block
-  keywords: [lcd, text display, grid]
-
-function:
-  summary: Displays text at a specific position on LCD
-  when_to_use:
-    - display short text
-    - precise positioning required
-
-inputs:
-  - name: text
-    type: string
-    required: true
-  - name: left_offset
-    type: number
-    range: [0, 19]
-  - name: line
-    type: number
-    range: [0, 3]
-  - name: color
-    type: enum
-    values: [red, yellow, green, blue]
-  - name: size
-    type: enum
-    values: [small, large]
-
-outputs: none
-
-connections:
-  accepts_input_from: any
-  outputs_to: display_only
-
----
-
-### lcd_message
-block_id: lcd_message
-category: virtual_display
-
-visual:
-  description: full width LCD message block
-  keywords: [lcd, message, display]
-
-function:
-  summary: Displays long text without positioning
-  when_to_use:
-    - display long messages
-    - no need for precise positioning
-
-inputs:
-  - name: text
-    type: string
-    required: true
-
-outputs: none
-
-connections:
-  accepts_input_from: any
-  outputs_to: display_only
-
----
-
-### graph_draw_point
-block_id: graph_draw_point
-category: virtual_display
-
-visual:
-  description: graph plotting block
-  keywords: [graph, plot, point]
-
-function:
-  summary: Draws a point on a graph display
-  when_to_use:
-    - visualize numeric data
-    - plotting values over time
-
-inputs:
-  - name: x
-    type: number
-  - name: y
-    type: number
-
-outputs: none
-
-connections:
-  accepts_input_from: any
-  outputs_to: display_only
-
----
-
-
-### led_8bit
+```yaml
 block_id: led_8bit
-display_name: 8LED
+block_name: 8LED
 category: virtual_display
-
+type: statement
+visual_signature: light blue rectangular display block; contains '8LED' and a row of 8 small lights
 function:
-  summary: Displays an 8-bit numeric value as LED states
-  when_to_use:
-    - visualize binary values
-    - debug bit-level operations
-  when_not_to_use:
-    - text display → use lcd blocks
-
+  summary: Displays a number 0-255 as an 8-bit LED pattern.
+  use_when:
+    - visualize binary/bit state
+    - debug decimal-to-binary outputs
+    - show switch-like status
+  avoid_when:
+    - text → use LCD blocks
+    - continuous values → use line_bar
 inputs:
-  - name: value
-    type: number
-    range: [0, 255]
-    required: true
-  - name: color
-    type: enum
-    values: [red, yellow, green, blue]
-
+  - value: number 0-255
+  - color: red/yellow/green/blue
 outputs: none
+instruction_template:
+  - Go to Virtual Display
+  - Drag 8LED
+  - Put numeric value into value input
+  - Choose LED color
+example_task: Show value 13 as LEDs.
+```
 
-connections:
-  type: statement
-  accepts_previous: true
-  accepts_next: true
-  accepts_children: false
+## Line Bar
 
-constraints:
-  - value must be 0–255
-
-visual_signature:
-  shape: rectangular display
-  contains_text: [8LED]
-  distinctive: row of 8 small lights
-
-image_ref: virtual_display/8led.png
-
----
-
-### line_bar
+```yaml
 block_id: line_bar
-display_name: Line Bar
+block_name: Line Bar
 category: virtual_display
-
+type: statement
+visual_signature: light blue horizontal bar block; looks like a potentiometer/slider bar
 function:
-  summary: Displays a continuous value as a bar (like potentiometer)
-  when_to_use:
-    - show normalized or continuous values
-
+  summary: Displays a continuous numeric value as a horizontal bar.
+  use_when:
+    - show normalized value
+    - show potentiometer value
+    - show approximate strength/level
+  avoid_when:
+    - exact number display → use LCD or 7Segment
+    - graph over time → use graph_draw_point
 inputs:
-  - name: value
-    type: number
-    range: [-100, 100]
-
+  - value: number, usually -100 to 100
 outputs: none
+instruction_template:
+  - Go to Virtual Display
+  - Drag Line Bar
+  - Connect numeric value
+example_task: Display potentiometer value as a bar.
+```
 
-connections:
-  type: statement
-  accepts_previous: true
-  accepts_next: true
+## 3x7Segment
 
-visual_signature:
-  shape: horizontal bar
-  contains_text: [bar]
-
-image_ref: virtual_display/line_bar.png
-
----
-
-### segment_3x7
+```yaml
 block_id: segment_3x7
-display_name: 3x7Segment
+block_name: 3x7Segment
 category: virtual_display
-
+type: statement
+visual_signature: light blue segmented digit block; contains '7SEG' or segmented digits
 function:
-  summary: Displays numeric or segment-based output on 7-segment display
-  when_to_use:
-    - display numeric values in hardware-like format
-
+  summary: Displays numeric/segment-based values in a seven-segment style.
+  use_when:
+    - show numeric hardware-style output
+    - show digit segments
+  avoid_when:
+    - free text → use LCD
+    - binary LEDs → use 8LED
 inputs:
-  - name: mode
-    type: enum
-    values: [numeric, msb, middle, lsb]
-
+  - mode: numeric/msb/middle/lsb
+  - value/segment input when available
 outputs: none
+instruction_template:
+  - Go to Virtual Display
+  - Drag 3x7Segment
+  - Choose mode
+  - Connect number/segment value
+example_task: Display number 7.
+```
 
-connections:
-  type: statement
-  accepts_previous: true
-  accepts_next: true
+## Graph Draw On
 
-visual_signature:
-  shape: segmented digits
-  contains_text: [7SEG]
-
-image_ref: virtual_display/3x7segment.png
-
----
-
-### graph_draw_on
+```yaml
 block_id: graph_draw_on
-display_name: Graph Draw On
+block_name: Graph Draw On
 category: virtual_display
-
+type: statement
+visual_signature: light blue graph timeline block; contains graph/timeline icon and source/rate/duration fields
 function:
-  summary: Collects data over time and plots graphs
-  when_to_use:
+  summary: Automatically samples selected robot/smartphone sensors and plots them over time.
+  use_when:
     - continuous data acquisition
+    - sensor graphing without manual loop
     - real-time plotting
-
+  avoid_when:
+    - manual function plotting → use graph_draw_point
 inputs:
-  - name: duration
-    type: number
-  - name: rate
-    type: number
-  - name: source
-    type: enum
-    values: [robot, smartphone]
-
+  - duration: seconds
+  - rate: Hz
+  - source: robot/smartphone
+  - sensors: selected sensors
 outputs: none
+instruction_template:
+  - Go to Virtual Display
+  - Drag Graph Draw On
+  - Set duration
+  - Set rate
+  - Choose source and sensors
+example_task: Record smartphone angle for 10 seconds at 50 Hz.
+```
 
-connections:
-  type: statement
+## Draw Trendline
 
-visual_signature:
-  shape: graph
-  contains_text: [graph, timeline]
-
-image_ref: virtual_display/graph_draw_on.png
-
----
-
-### graph_trendline
+```yaml
 block_id: graph_trendline
-display_name: Draw Trendline
+block_name: Draw Trendline
 category: virtual_display
-
+type: statement/value-output
+visual_signature: light blue graph/regression block; contains trendline/regression text
 function:
-  summary: Computes regression line from graph data
-  when_to_use:
-    - extract model (linear, etc.)
-    - compute coefficients
-
+  summary: Computes a regression/trendline from existing graph data and outputs coefficients.
+  use_when:
+    - fit a line/function to graph data
+    - get slope/intercept
+    - compute model after plotting
+  avoid_when:
+    - drawing raw points → use graph_draw_point
 inputs:
-  - name: function_type
-    type: enum
-  - name: timeframe
-    type: number
+  - function_type: enum
+  - timeframe: number
+  - graph_color: color
+outputs: coefficients, such as slope/intercept depending on fit
+instruction_template:
+  - Go to Virtual Display
+  - Drag Draw Trendline
+  - Choose function type
+  - Choose graph color
+  - Set timeframe
+  - Use coefficient outputs if needed
+example_task: Fit a line to red graph and display slope.
+```
 
-outputs:
-  - coefficients
+## Save Graph
 
-connections:
-  type: statement
-
-visual_signature:
-  shape: graph_line
-  contains_text: [trendline]
-
-image_ref: virtual_display/trendline.png
-
----
-
-### graph_save
+```yaml
 block_id: graph_save
-display_name: Save Graph
+block_name: Save Graph
 category: virtual_display
-
+type: statement/value-output
+visual_signature: light blue save graph block; graph icon with file/save concept
 function:
-  summary: Saves graph to CSV file
-
+  summary: Saves a selected graph color to a CSV file.
+  use_when:
+    - export graph data
+    - save experiment results
+    - produce CSV
+  avoid_when:
+    - saving arbitrary text → use write_line_file
 inputs:
-  - name: graph_color
-    type: enum
+  - graph_color: red/yellow/green/blue
+outputs: filename
+instruction_template:
+  - Go to Virtual Display
+  - Drag Save Graph
+  - Choose graph color
+  - Store/use returned filename if needed
+example_task: Save the red graph to CSV.
+```
 
-outputs:
-  - filename
+## Load Graph
 
-connections:
-  type: statement
-
-image_ref: virtual_display/save_graph.png
-
----
-
-### graph_load
+```yaml
 block_id: graph_load
-display_name: Load Graph
+block_name: Load Graph
 category: virtual_display
-
+type: statement
+visual_signature: light blue load graph block; graph icon with file/load concept
 function:
-  summary: Loads graph from CSV file
-
+  summary: Loads graph data from a CSV file and draws it on the graph display.
+  use_when:
+    - restore saved graph
+    - show previous data
+  avoid_when:
+    - real-time acquisition → use graph_draw_on
 inputs:
-  - name: file
-    type: string
-
+  - file: string or filename variable
 outputs: none
+instruction_template:
+  - Go to Virtual Display
+  - Drag Load Graph
+  - Put CSV filename into file input
+example_task: Load file 'trial1.csv'.
+```
 
-connections:
-  type: statement
+## Reset Graph
 
-image_ref: virtual_display/load_graph.png
-
----
-
-### graph_reset
+```yaml
 block_id: graph_reset
-display_name: Reset Graph
+block_name: Reset Graph
 category: virtual_display
-
+type: statement
+visual_signature: light blue graph block; contains 'reset graph color' and a color selector
 function:
-  summary: Removes graph by color
-
+  summary: Clears/removes graph data of one selected color from the display.
+  use_when:
+    - clear old graph before new run
+    - avoid accumulating repeated runs
+    - clear one series only
+  avoid_when:
+    - clear all UI components → use component_toggle if hiding components
 inputs:
-  - name: graph_color
-    type: enum
-
+  - graph_color: red/yellow/green/blue
 outputs: none
+instruction_template:
+  - Go to Virtual Display
+  - Drag Reset Graph
+  - Choose color
+  - Place before the plotting loop
+example_task: Reset red and blue graphs before drawing sin/cos.
+important_note: place before plotting loop to clear old runs; one reset block per graph color
+```
 
-connections:
-  type: statement
+## Load/Unload Component
 
-image_ref: virtual_display/reset_graph.png
-
----
-
-### component_toggle
+```yaml
 block_id: component_toggle
-display_name: Load/Unload Component
+block_name: Load/Unload Component
 category: virtual_display
-
+type: statement
+visual_signature: light blue component block; load/unload screen component selector
 function:
-  summary: Shows or hides display component
-
+  summary: Shows or hides selected display/screen components.
+  use_when:
+    - remove a component from screen
+    - show a component only when needed
+  avoid_when:
+    - clear graph data → use graph_reset
 inputs:
-  - name: component
-    type: enum
-
+  - component: selected screen component
+  - mode: load/unload if available
 outputs: none
+instruction_template:
+  - Go to Virtual Display
+  - Drag Load/Unload Component
+  - Choose component
+  - Choose load or unload
+example_task: Hide the graph display after the run.
+```
 
-connections:
-  type: statement
-
-image_ref: virtual_display/component_toggle.png
-
-
-
-
-
-# =========================
 # Physical Sensors
-# =========================
 
-### angle_scalar
+Use for phone/device physical measurements such as angle, gyro, acceleration, GPS.
+
+## Angle (scalar)
+
+```yaml
 block_id: angle_scalar
-display_name: Angle (scalar)
+block_name: Angle (scalar)
 category: physical_sensors
-
+type: value
+visual_signature: pink sensor block; contains 'angle'; no inputs
 function:
-  summary: Returns device rotation angle in degrees
-inputs: []
-outputs:
-  - number (degrees)
-
-connections:
-  type: value
-  outputs_to: numeric_inputs
-
-visual_signature:
-  contains_text: [angle]
-
-image_ref: sensors/angle.png
-
----
-
-### gyro_rate
-block_id: gyro_rate
-display_name: Gyro Rate
-category: physical_sensors
-
-function:
-  summary: Returns angular velocity (deg/sec)
-inputs: []
-outputs:
-  - number
-
-connections:
-  type: value
-
-image_ref: sensors/gyro.png
-
----
-
-### acceleration
-block_id: acceleration
-display_name: Linear Acceleration
-category: physical_sensors
-
-function:
-  summary: Returns acceleration on selected axis
+  summary: Returns device rotation angle in degrees.
+  use_when:
+    - use phone angle as numeric input
+    - graph orientation
+    - trigger actions by rotation
+  avoid_when:
+    - robot motor angle → use robot sensor read
 inputs:
-  - axis: [x,y,z]
-outputs:
-  - number
+  - none
+outputs: number in degrees
+instruction_template:
+  - Go to Physical Sensors
+  - Drag Angle (scalar) into a numeric input socket
+example_task: Plot phone angle over time.
+```
 
-connections:
-  type: value
+## Gyro Rate
 
-image_ref: sensors/acceleration.png
-
----
-
-### gps
-block_id: gps
-display_name: GPS
+```yaml
+block_id: gyro_rate
+block_name: Gyro Rate
 category: physical_sensors
-
+type: value
+visual_signature: pink gyro/rate block; no inputs
 function:
-  summary: Returns location data (lat, lon, altitude, distance)
-inputs: []
-outputs:
-  - multi_value
+  summary: Returns angular velocity in degrees per second.
+  use_when:
+    - measure rotation speed
+    - graph angular velocity
+  avoid_when:
+    - angle position → use angle_scalar
+inputs:
+  - none
+outputs: number deg/sec
+instruction_template:
+  - Go to Physical Sensors
+  - Drag Gyro Rate into numeric socket
+example_task: Show gyro rate on LCD.
+```
 
-connections:
-  type: value
+## Linear Acceleration
 
-image_ref: sensors/gps.png
+```yaml
+block_id: acceleration
+block_name: Linear Acceleration
+category: physical_sensors
+type: value
+visual_signature: pink acceleration block with x/y/z axis selector
+function:
+  summary: Returns linear acceleration along selected axis.
+  use_when:
+    - measure phone acceleration
+    - motion experiments
+    - data acquisition
+  avoid_when:
+    - robot acceleration command → use motion_accelerated
+inputs:
+  - axis: x/y/z
+outputs: number
+instruction_template:
+  - Go to Physical Sensors
+  - Drag Linear Acceleration
+  - Choose axis
+  - Connect output to graph/math/display
+example_task: Graph x-axis acceleration.
+```
 
-# =========================
+## GPS
+
+```yaml
+block_id: gps
+block_name: GPS
+category: physical_sensors
+type: value/multi-output
+visual_signature: pink GPS/location block; outputs latitude/longitude/altitude/distance
+function:
+  summary: Returns location-related GPS values.
+  use_when:
+    - track position
+    - measure distance
+    - record GPS data
+  avoid_when:
+    - screen joystick coordinates → use joystick
+inputs:
+  - selected output: longitude/latitude/altitude/distance
+outputs: number or multi-value
+instruction_template:
+  - Go to Physical Sensors
+  - Drag GPS
+  - Choose needed output
+  - Connect to display/data block
+example_task: Display GPS distance.
+```
+
 # Virtual Sensors
-# =========================
 
-### keypad_numeric
+Use for screen/user-controlled input: keypad, keyboard, joystick, potentiometer, button.
+
+## Keypad Numeric
+
+```yaml
 block_id: keypad_numeric
-display_name: Keypad Numeric
+block_name: Keypad Numeric
 category: virtual_sensors
-
+type: value
+visual_signature: blue keypad block; numeric keypad icon; waits for entered number
 function:
-  summary: Gets numeric input from user
-inputs: []
-outputs:
-  - number
+  summary: Gets numeric input from the user.
+  use_when:
+    - ask user for a number
+    - set variable from keypad
+    - parameter input
+  avoid_when:
+    - text input → use keyboard_text
+inputs:
+  - none
+outputs: number
+instruction_template:
+  - Go to Virtual Sensors
+  - Drag Keypad Numeric into a value socket
+  - Use output to set a variable
+example_task: Ask user for loop max.
+```
 
-connections:
-  type: value
+## Button
 
-image_ref: virtual/keypad_numeric.png
-
----
-
-### button
+```yaml
 block_id: button
-display_name: Button
+block_name: Button
 category: virtual_sensors
-
+type: statement
+visual_signature: blue button block; has message text input
 function:
-  summary: Waits for user interaction
+  summary: Shows a button and waits for user interaction.
+  use_when:
+    - pause until user presses button
+    - manual start/confirm step
+  avoid_when:
+    - boolean switch value → use switch/toggle if available
 inputs:
   - message: string
 outputs: none
+instruction_template:
+  - Go to Virtual Sensors
+  - Drag Button
+  - Set button message
+example_task: Wait for user to press 'Start'.
+```
 
-connections:
-  type: statement
+## Keyboard Alpha Numeric
 
-image_ref: virtual/button.png
-
----
-
-### keyboard_text
+```yaml
 block_id: keyboard_text
-display_name: Keyboard Alpha Numeric
+block_name: Keyboard Alpha Numeric
 category: virtual_sensors
-
+type: value
+visual_signature: blue keyboard block; returns typed text
 function:
-  summary: Gets text input from user
-inputs: []
-outputs:
-  - string
+  summary: Gets alpha-numeric text input from the user.
+  use_when:
+    - ask for name
+    - ask for filename
+    - ask for message
+  avoid_when:
+    - numbers only → use keypad_numeric
+inputs:
+  - none
+outputs: string
+instruction_template:
+  - Go to Virtual Sensors
+  - Drag Keyboard Alpha Numeric into a string input/socket
+example_task: Ask user for file name.
+```
 
-connections:
-  type: value
+## Joystick
 
-image_ref: virtual/keyboard.png
-
----
-
-### joystick
+```yaml
 block_id: joystick
-display_name: Joystick
+block_name: Joystick
 category: virtual_sensors
-
+type: value/multi-output
+visual_signature: blue joystick block; outputs x and y coordinates
 function:
-  summary: Returns X,Y coordinates of joystick
-inputs: []
-outputs:
-  - x
-  - y
+  summary: Returns x/y coordinates from on-screen joystick.
+  use_when:
+    - control robot direction
+    - manual input with two axes
+    - screen-based coordinate input
+  avoid_when:
+    - GPS coordinates → use gps
+inputs:
+  - none
+outputs: x number, y number
+instruction_template:
+  - Go to Virtual Sensors
+  - Drag Joystick
+  - Use x and/or y output
+example_task: Use joystick x for steering.
+```
 
-connections:
-  type: value
+## Potentiometers
 
-image_ref: virtual/joystick.png
-
----
-
-### potentiometer
+```yaml
 block_id: potentiometer
-display_name: Potentiometers
+block_name: Potentiometers
 category: virtual_sensors
-
+type: value
+visual_signature: blue potentiometer block; color/index selector; output range usually -100 to 100
 function:
-  summary: Returns analog value from user control
+  summary: Returns analog value from on-screen potentiometer.
+  use_when:
+    - manual continuous input
+    - control speed/volume/threshold
+    - adjust a parameter live
+  avoid_when:
+    - display bar → use line_bar
 inputs:
-  - index
-outputs:
-  - number [-100,100]
+  - index/color: selected potentiometer
+outputs: number, usually -100 to 100
+instruction_template:
+  - Go to Virtual Sensors
+  - Drag Potentiometers
+  - Choose index/color
+  - Connect output
+example_task: Use potentiometer as motor power.
+```
 
-connections:
-  type: value
-
-image_ref: virtual/potentiometer.png
-
-
-
-
-
-# =========================
 # Advanced Sensors
-# =========================
 
-### color_ambient
+Use for interpreted sensing: color, light, sound, proximity/touch, face recognition/position.
+
+## Color Ambient Light
+
+```yaml
 block_id: color_ambient
-display_name: Color Ambient Light
+block_name: Color Ambient Light
 category: advanced_sensors
-
+type: value
+visual_signature: brown/light sensor block; contains light/ambient wording
 function:
-  summary: Measures ambient light intensity (0-100%)
-inputs: []
-outputs:
-  - number [0-100]
+  summary: Measures ambient light intensity normalized from 0 to 100%.
+  use_when:
+    - measure brightness
+    - trigger by room light
+    - graph light level
+  avoid_when:
+    - detect a specific color → use color_detect
+inputs:
+  - none
+outputs: number 0-100
+instruction_template:
+  - Go to Advanced Sensors
+  - Drag Color Ambient Light
+  - Connect to numeric input
+example_task: Graph ambient light.
+```
 
-connections:
-  type: value
+## Color Detect
 
-constraints:
-  - output normalized 0–100
-
-visual_signature:
-  contains_text: [light]
-
-image_ref: sensors/ambient.png
-
----
-
-### color_detect
+```yaml
 block_id: color_detect
-display_name: Color Detect
+block_name: Color Detect
 category: advanced_sensors
-
+type: value
+visual_signature: brown camera/color block; contains color/detect wording
 function:
-  summary: Detects one of predefined colors from camera
-inputs: []
-outputs:
-  - number [0-7]
+  summary: Detects one predefined color and returns numeric color code.
+  use_when:
+    - detect visible color
+    - condition based on camera color
+  avoid_when:
+    - light level → use color_ambient
+inputs:
+  - none
+outputs: number 0-7: 0 none, 1 black, 2 blue, 3 green, 4 yellow, 5 red, 6 white, 7 brown
+instruction_template:
+  - Go to Advanced Sensors
+  - Drag Color Detect
+  - Compare returned number to color code
+example_task: If detected color is red, play sound.
+```
 
-connections:
-  type: value
+## Sound Amplitude
 
-constraints:
-  - mapping: 0 none, 1 black, 2 blue, 3 green, 4 yellow, 5 red, 6 white, 7 brown
-
-visual_signature:
-  contains_text: [color]
-
-image_ref: sensors/color_detect.png
-
----
-
-### sound_amplitude
+```yaml
 block_id: sound_amplitude
-display_name: Sound Amplitude
+block_name: Sound Amplitude
 category: advanced_sensors
-
+type: value
+visual_signature: brown sound block; microphone/sound icon
 function:
-  summary: Measures sound level (0-100%)
-inputs: []
-outputs:
-  - number
+  summary: Measures sound amplitude normalized from 0 to 100%.
+  use_when:
+    - detect loudness
+    - trigger action by clap/noise
+    - graph sound level
+  avoid_when:
+    - record audio file → use Advanced Media Audio Record
+inputs:
+  - none
+outputs: number 0-100
+instruction_template:
+  - Go to Advanced Sensors
+  - Drag Sound Amplitude
+  - Connect to comparison/graph/display
+example_task: If sound > 80, write Loud.
+```
 
-connections:
-  type: value
+## Touch Sensor
 
-image_ref: sensors/sound.png
-
----
-
-### touch_sensor
+```yaml
 block_id: touch_sensor
-display_name: Touch Sensor
+block_name: Touch Sensor
 category: advanced_sensors
-
+type: value/bool
+visual_signature: brown proximity/touch block; returns true/false
 function:
-  summary: Returns true if proximity threshold met
-inputs: []
-outputs:
-  - bool
+  summary: Returns true when proximity/touch threshold is met.
+  use_when:
+    - detect hand/near object
+    - conditional trigger
+    - wait until touched
+  avoid_when:
+    - screen button → use button
+inputs:
+  - none
+outputs: boolean
+instruction_template:
+  - Go to Advanced Sensors
+  - Drag Touch Sensor into condition socket
+example_task: Wait until touch sensor is true.
+```
 
-connections:
-  type: value
+## Face Recognition
 
-image_ref: sensors/touch.png
-
----
-
-### face_recognition
+```yaml
 block_id: face_recognition
-display_name: Face Recognition
+block_name: Face Recognition
 category: advanced_sensors
-
+type: value
+visual_signature: brown face block; includes person name input
 function:
-  summary: Identifies closest known face
+  summary: Identifies the closest recognized person by name.
+  use_when:
+    - recognize a stored face
+    - branch based on identity
+  avoid_when:
+    - generic face position/distance → use face_position
 inputs:
-  - name: person_name
-    type: string
-outputs:
-  - string (recognized name)
+  - person_name: string
+outputs: string recognized name
+instruction_template:
+  - Go to Advanced Sensors
+  - Drag Face Recognition
+  - Set person name if required
+  - Use output in string comparison
+example_task: If closest name is Dan, display Hello Dan.
+```
 
-connections:
-  type: value
+## Get Position By Name
 
-constraints:
-  - works only for stored faces
-
-visual_signature:
-  contains_text: [face]
-
-image_ref: sensors/face_recognition.png
-
----
-
-### face_position
+```yaml
 block_id: face_position
-display_name: Get Position By Name
+block_name: Get Position By Name
 category: advanced_sensors
-
+type: value/multi-output
+visual_signature: brown face position block; outputs x/y/height/distance
 function:
-  summary: Returns face coordinates and distance
+  summary: Returns position/distance data for a recognized face with a given name.
+  use_when:
+    - track known person's face
+    - measure distance to face
+    - use face x/y for control
+  avoid_when:
+    - only identify name → use face_recognition
 inputs:
-  - name: person_name
-    type: string
-outputs:
-  - x
-  - y
-  - height_cm
-  - distance_cm
+  - person_name: string
+outputs: x, y, height_cm, distance_cm
+instruction_template:
+  - Go to Advanced Sensors
+  - Drag Get Position By Name
+  - Enter person name
+  - Use needed output
+example_task: Graph distance to Arnold's face.
+```
 
-connections:
-  type: value
-
-image_ref: sensors/face_position.png
-
-
-# =========================
 # Communication
-# =========================
 
-### text_to_voice
+Use for speech, SMS, external AI/search questions.
+
+## Text to Voice
+
+```yaml
 block_id: text_to_voice
-display_name: Text to Voice
+block_name: Text to Voice
 category: communication
-
+type: statement
+visual_signature: communication/media speech block; has text, volume, repeat flag
 function:
-  summary: Converts text to speech
+  summary: Speaks text aloud.
+  use_when:
+    - read a value aloud
+    - announce completion
+    - voice feedback
+  avoid_when:
+    - play tone/music → use Advanced Media blocks
 inputs:
   - text: string
-  - volume: [0-100]
-  - repeat_flag: enum
+  - volume: 0-100
+  - repeat_flag: wait/play once/repeat
 outputs: none
+instruction_template:
+  - Go to Communication
+  - Drag Text to Voice
+  - Connect text
+  - Set volume and repeat flag
+example_task: Speak 'done'.
+```
 
-connections:
-  type: statement
+## Voice to Text
 
-image_ref: comm/tts.png
-
----
-
-### voice_to_text
+```yaml
 block_id: voice_to_text
-display_name: Voice to Text
+block_name: Voice to Text
 category: communication
-
+type: value
+visual_signature: communication STT block; language selector and overwrite/edit flag
 function:
-  summary: Converts speech to text
+  summary: Converts speech to text.
+  use_when:
+    - voice command input
+    - dictate text
+    - store spoken words
+  avoid_when:
+    - typed input → use keyboard_text
 inputs:
-  - language: [hebrew, english, arabic]
-  - overwrite: bool
-outputs:
-  - string
+  - language: hebrew/english/arabic
+  - overwrite: true/false
+outputs: string
+instruction_template:
+  - Go to Communication
+  - Drag Voice to Text into string socket
+  - Choose language
+  - Choose overwrite flag
+example_task: Set variable commandText to spoken English.
+```
 
-connections:
-  type: value
+## Send SMS
 
-image_ref: comm/stt.png
-
----
-
-### send_sms
+```yaml
 block_id: send_sms
-display_name: Send SMS
+block_name: Send SMS
 category: communication
-
+type: statement
+visual_signature: communication SMS block; has phone number and content inputs
 function:
-  summary: Sends SMS message
+  summary: Sends an SMS message.
+  use_when:
+    - text results to phone
+    - send alert
+    - share final list/value
+  avoid_when:
+    - display locally → use LCD
 inputs:
-  - phone_number: string
+  - phone_number: string in international format
   - content: string
 outputs: none
+instruction_template:
+  - Go to Communication
+  - Drag Send SMS
+  - Enter phone number
+  - Connect message content
+example_task: Send result list to +972...
+```
 
-connections:
-  type: statement
+## Get SMS
 
-image_ref: comm/send_sms.png
-
----
-
-### get_sms
+```yaml
 block_id: get_sms
-display_name: Get SMS
+block_name: Get SMS
 category: communication
-
+type: value
+visual_signature: communication read SMS block; no inputs
 function:
-  summary: Reads incoming SMS
-inputs: []
-outputs:
-  - string
+  summary: Reads incoming SMS body text.
+  use_when:
+    - receive remote command
+    - react to SMS
+  avoid_when:
+    - voice input → use voice_to_text
+inputs:
+  - none
+outputs: string
+instruction_template:
+  - Go to Communication
+  - Drag Get SMS into text/string socket
+example_task: Display latest SMS on LCD.
+```
 
-connections:
-  type: value
+## Ask Gemini or ChatGPT / Ask Google
 
-image_ref: comm/get_sms.png
-
----
-
-### ask_llm
+```yaml
 block_id: ask_llm
-display_name: Ask Gemini or ChatGPT
+block_name: Ask Gemini or ChatGPT / Ask Google
 category: communication
-
+type: statement
+visual_signature: communication AI/search block; text question input
 function:
-  summary: Sends query to LLM service
+  summary: Sends a text prompt/question to an AI/search service.
+  use_when:
+    - ask external knowledge question
+    - call Gemini/ChatGPT/Google
+    - search for instructions
+  avoid_when:
+    - compute math locally → use Math blocks
 inputs:
-  - text: string
+  - text: string prompt
 outputs: none
+instruction_template:
+  - Go to Communication
+  - Drag Ask Gemini/ChatGPT or Ask Google
+  - Enter question text
+example_task: Ask Google: 'how to make pancakes'.
+```
 
-connections:
-  type: statement
+# Data Operations
 
-image_ref: comm/ask_llm.png
+Use for local files, Firebase database, Firebase storage, upload/download/delete/wait.
 
+## Write Line to File
 
-
-
-
-# =========================
-# Data Operations (Firebase + Files)
-# =========================
-
-### write_line_file
+```yaml
 block_id: write_line_file
-display_name: Write Line to File
+block_name: Write Line to File
 category: data_operations
-
+type: statement
+visual_signature: red file block; contains write line/file wording
 function:
-  summary: Writes a string line into a file
+  summary: Writes one string line to a local file.
+  use_when:
+    - log data
+    - save text
+    - append experiment results
+  avoid_when:
+    - save graph as CSV → use graph_save
+    - upload file → use upload_file
 inputs:
   - file_name: string
   - text: string
 outputs: none
+instruction_template:
+  - Go to Data Operations
+  - Drag Write Line to File
+  - Set file name
+  - Connect text line
+example_task: Write 'trial complete' to log.txt.
+```
 
-connections:
-  type: statement
+## Read Line from File
 
-constraints:
-  - file must be writable
-
-image_ref: data/write_line.png
-
----
-
-### read_line_file
+```yaml
 block_id: read_line_file
-display_name: Read Line from File
+block_name: Read Line from File
 category: data_operations
-
+type: value
+visual_signature: red file read block; contains read line/file wording
 function:
-  summary: Reads a line from file
+  summary: Reads one line of text from a local file.
+  use_when:
+    - reuse saved text
+    - load parameter from file
+  avoid_when:
+    - load graph CSV visually → use graph_load
 inputs:
   - file_name: string
-outputs:
-  - string
+outputs: string
+instruction_template:
+  - Go to Data Operations
+  - Drag Read Line from File into text socket
+  - Set file name
+example_task: Read filename from config.txt.
+```
 
-connections:
-  type: value
+## Delete File
 
-image_ref: data/read_line.png
-
----
-
-### delete_file
+```yaml
 block_id: delete_file
-display_name: Delete File
+block_name: Delete File
 category: data_operations
-
+type: statement
+visual_signature: red local file delete block; contains delete file wording
 function:
-  summary: Deletes a file permanently
+  summary: Deletes a local file permanently.
+  use_when:
+    - remove created file
+    - cleanup local storage
+  avoid_when:
+    - delete Firebase storage object → use storage_delete if available
 inputs:
   - file_name: string
 outputs: none
+instruction_template:
+  - Go to Data Operations
+  - Drag Delete File
+  - Set filename
+example_task: Delete file named by variable s.
+```
 
-connections:
-  type: statement
+## Initialize DB
 
-image_ref: data/delete_file.png
-
----
-
-### firebase_init
+```yaml
 block_id: firebase_init
-display_name: Initialize DB
+block_name: Initialize DB
 category: data_operations
-
+type: statement
+visual_signature: red Firebase block; initialize DB URL field
 function:
-  summary: Connects to Firebase database
+  summary: Connects to a Firebase database URL.
+  use_when:
+    - use Firebase read/write/delete/wait blocks
+    - start database workflow
+  avoid_when:
+    - file storage upload/download → use storage_init
 inputs:
   - url: string
 outputs: none
+instruction_template:
+  - Go to Data Operations
+  - Drag Initialize DB
+  - Paste database URL
+  - Place before Firebase read/write blocks
+example_task: Initialize database before writing key score.
+```
 
-connections:
-  type: statement
+## Write Key
 
-image_ref: firebase/init.png
-
----
-
-### firebase_write
+```yaml
 block_id: firebase_write
-display_name: Write Key
+block_name: Write Key
 category: data_operations
-
+type: statement
+visual_signature: red Firebase write block; key/value inputs
 function:
-  summary: Writes value to database key
+  summary: Writes a value to a Firebase key.
+  use_when:
+    - store remote value
+    - share program state
+    - write text/number/bool/list
+  avoid_when:
+    - local file writing → use write_line_file
 inputs:
   - key: string
-  - value: any
+  - value: any typed value
 outputs: none
+instruction_template:
+  - Go to Data Operations
+  - Drag Write Key
+  - Set key
+  - Connect value
+example_task: Write score=5 to Firebase.
+```
 
-connections:
-  type: statement
+## Read Key
 
-image_ref: firebase/write.png
-
----
-
-### firebase_read
+```yaml
 block_id: firebase_read
-display_name: Read Key
+block_name: Read Key
 category: data_operations
-
+type: value
+visual_signature: red Firebase read block; key input
 function:
-  summary: Reads value from database key
+  summary: Reads a value from a Firebase key.
+  use_when:
+    - retrieve remote value
+    - read shared parameter/state
+  avoid_when:
+    - read local file → use read_line_file
 inputs:
   - key: string
-outputs:
-  - any
+outputs: any typed value
+instruction_template:
+  - Go to Data Operations
+  - Drag Read Key into a value socket
+  - Set key
+example_task: Set x to value from key 'speed'.
+```
 
-connections:
-  type: value
+## Delete Key
 
-image_ref: firebase/read.png
-
----
-
-### firebase_delete_key
+```yaml
 block_id: firebase_delete_key
-display_name: Delete Key
+block_name: Delete Key
 category: data_operations
-
+type: statement
+visual_signature: red Firebase delete key block; key input
 function:
-  summary: Deletes key from database
+  summary: Deletes a Firebase key.
+  use_when:
+    - remove remote data
+    - clear shared state
+  avoid_when:
+    - delete entire file → use delete_file/storage_delete
 inputs:
   - key: string
 outputs: none
+instruction_template:
+  - Go to Data Operations
+  - Drag Delete Key
+  - Set key
+example_task: Delete key 'command'.
+```
 
-connections:
-  type: statement
+## Wait Until Key Changes
 
-image_ref: firebase/delete_key.png
-
----
-
-### firebase_wait_change
+```yaml
 block_id: firebase_wait_change
-display_name: Wait Until Key Changes
+block_name: Wait Until Key Changes
 category: data_operations
-
+type: statement
+visual_signature: red Firebase wait/change block; key input
 function:
-  summary: Blocks execution until key value changes
+  summary: Pauses the program until the selected Firebase key changes.
+  use_when:
+    - wait for remote command
+    - sync two devices
+    - react only when database updates
+  avoid_when:
+    - ordinary time wait → use wait
 inputs:
   - key: string
 outputs: none
+instruction_template:
+  - Go to Data Operations
+  - Drag Wait Until Key Changes
+  - Set key
+  - Place before reading the key
+example_task: Wait until key 'start' changes.
+```
 
-connections:
-  type: statement
+## Initialize Storage
 
-image_ref: firebase/wait_change.png
-
----
-
-### storage_init
+```yaml
 block_id: storage_init
-display_name: Initialize Storage
+block_name: Initialize Storage
 category: data_operations
-
+type: statement
+visual_signature: red Firebase storage initialize block; URL input
 function:
-  summary: Connects to storage service
+  summary: Connects to Firebase Storage before upload/download/delete storage operations.
+  use_when:
+    - prepare storage upload
+    - prepare storage download
+    - use Firebase storage URL
+  avoid_when:
+    - Firebase database operations → use firebase_init
 inputs:
   - url: string
 outputs: none
+instruction_template:
+  - Go to Data Operations
+  - Drag Initialize Storage
+  - Paste storage URL
+  - Place before upload/download/delete storage blocks
+example_task: Initialize storage at a Firebase storage URL.
+```
 
-connections:
-  type: statement
+## Upload File
 
-image_ref: storage/init.png
-
----
-
-### upload_file
+```yaml
 block_id: upload_file
-display_name: Upload File
+block_name: Upload File
 category: data_operations
-
+type: statement
+visual_signature: red storage upload block; filename and file type selector
 function:
-  summary: Uploads file to storage
+  summary: Uploads a selected local file to initialized storage.
+  use_when:
+    - upload csv/image/video/audio
+    - send generated file to storage
+  avoid_when:
+    - save graph locally first → use graph_save
 inputs:
-  - file_name: string
-  - type: enum [image, video, audio, csv]
+  - file_name: string or filename variable
+  - type: image/video/audio/csv
 outputs: none
+instruction_template:
+  - Go to Data Operations
+  - Drag Upload File
+  - Set filename or variable
+  - Choose file type
+example_task: Upload CSV file with filename stored in variable s.
+```
 
-connections:
-  type: statement
+## Download File
 
-image_ref: storage/upload.png
-
----
-
-### download_file
+```yaml
 block_id: download_file
-display_name: Download File
+block_name: Download File
 category: data_operations
-
+type: statement
+visual_signature: red storage download block; filename and file type selector
 function:
-  summary: Downloads file from storage
+  summary: Downloads a file from initialized storage.
+  use_when:
+    - retrieve stored file
+    - download CSV/image/audio/video
+  avoid_when:
+    - load graph from local CSV after download → use graph_load
 inputs:
   - file_name: string
   - type: enum
 outputs: none
+instruction_template:
+  - Go to Data Operations
+  - Drag Download File
+  - Set filename
+  - Choose type
+example_task: Download image file 'photo.jpg'.
+```
 
-connections:
-  type: statement
+## Delete File (Storage)
 
-image_ref: storage/download.png
-
----
-
-### storage_delete
+```yaml
 block_id: storage_delete
-display_name: Delete File (Storage)
+block_name: Delete File (Storage)
 category: data_operations
-
+type: statement
+visual_signature: red storage delete block; filename and file type selector
 function:
-  summary: Deletes file from storage
+  summary: Deletes a file from initialized storage.
+  use_when:
+    - remove uploaded file
+    - cleanup cloud storage
+  avoid_when:
+    - delete local file → use delete_file
 inputs:
   - file_name: string
   - type: enum
 outputs: none
+instruction_template:
+  - Go to Data Operations
+  - Drag Delete File (Storage)
+  - Set filename
+  - Choose type
+example_task: Delete uploaded CSV named by variable s.
+```
 
-connections:
-  type: statement
-
-image_ref: storage/delete.png
-
-
-# =========================
 # Smartphone
-# =========================
 
-### data_acquisition
+Use for smartphone-specific data acquisition workflows.
+
+## Data Acquisition
+
+```yaml
 block_id: data_acquisition
-display_name: Data Acquisition
+block_name: Data Acquisition
 category: smartphone
-
+type: statement
+visual_signature: smartphone data acquisition block; contains file name, sensors, duration, rate
 function:
-  summary: Samples smartphone sensors and saves to file
+  summary: Samples selected smartphone sensors and saves collected data to a file.
+  use_when:
+    - record phone sensors
+    - save experiment sensor data
+    - sample at fixed Hz
+  avoid_when:
+    - manual plotting of math functions → use graph_draw_point
 inputs:
   - file_name: string
-  - sensors: list
+  - sensors: list/selected sensors
   - duration_sec: number
-  - rate_hz: number
-outputs: none
+  - rate_hz: number 0-100
+outputs: none/file depending on implementation
+instruction_template:
+  - Go to Smartphone
+  - Drag Data Acquisition
+  - Set file name
+  - Select sensors
+  - Set duration
+  - Set rate
+example_task: Record acceleration for 10 seconds at 50 Hz.
+```
 
-connections:
-  type: statement
-
-constraints:
-  - rate: 0–100 Hz
-
-visual_signature:
-  contains_text: [data, acquisition]
-
-image_ref: smartphone/data_acquisition.png
-
-
-
-
-
-# =========================
 # Flow Control
-# =========================
 
-### start_program
+Use for program start, loops, timing, conditions, waits, break, exit, and task control.
+
+## Start Program / on start
+
+```yaml
 block_id: start_program
-display_name: Start Program
+block_name: Start Program / on start
 category: flow_control
-
+type: container/root
+visual_signature: green container block; top says 'on start'; holds other blocks inside
 function:
-  summary: Entry point of program execution
-inputs: []
+  summary: Program entry point. Blocks inside run when the user presses play/start.
+  use_when:
+    - start every program
+    - wrap all top-level commands
+  avoid_when:
+    - reusable subroutine → use start_task/my blocks
+inputs:
+  - none
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag on start / Start Program to workspace
+  - Put all program commands inside it
+example_task: Begin program with on start.
+```
 
-connections:
-  type: container
-  accepts_children: true
-  accepts_previous: false
-  accepts_next: false
+## Start Task
 
-constraints:
-  - must be top-level root block
-
-visual_signature:
-  contains_text: [start]
-
-image_ref: flow/start.png
-
----
-
-### start_task
+```yaml
 block_id: start_task
-display_name: Start Task
+block_name: Start Task
 category: flow_control
-
+type: container
+visual_signature: green task container block; separate runnable process
 function:
-  summary: Defines a separate runnable task
-inputs: []
+  summary: Defines a separate task/process that can run independently or be stopped.
+  use_when:
+    - parallel/separate process
+    - task-level organization
+  avoid_when:
+    - main program entry → use start_program
+inputs:
+  - none
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag Start Task
+  - Place task commands inside
+example_task: Create task that watches sensor value.
+```
 
-connections:
-  type: container
-  accepts_children: true
+## Stop Task
 
-image_ref: flow/start_task.png
-
----
-
-### stop_task
+```yaml
 block_id: stop_task
-display_name: Stop Task
+block_name: Stop Task
 category: flow_control
-
+type: statement
+visual_signature: green task control block; stops selected task
 function:
-  summary: Stops a running task
-inputs: []
+  summary: Stops a running task/process.
+  use_when:
+    - end a background task
+    - stop a separate process after condition/time
+  avoid_when:
+    - exit whole program → use exit_program
+inputs:
+  - task identifier if available
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag Stop Task
+  - Choose task if required
+example_task: Stop task after 3 seconds.
+```
 
-connections:
-  type: statement
+## Repeat N Times
 
-image_ref: flow/stop_task.png
-
----
-
-### repeat_n
+```yaml
 block_id: repeat_n
-display_name: Repeat N Times
+block_name: Repeat N Times
 category: flow_control
-
+type: container
+visual_signature: green loop block; contains count and do area
 function:
-  summary: Executes loop fixed number of times
+  summary: Runs contained blocks a fixed number of times.
+  use_when:
+    - repeat exact count
+    - do same action N times
+  avoid_when:
+    - loop with changing counter → use repeat_increment
 inputs:
   - count: number
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag Repeat N Times
+  - Set count
+  - Place repeated commands inside do area
+example_task: Repeat 5 times, beep once each time.
+```
 
-connections:
-  type: container
-  accepts_children: true
+## Repeat Until
 
-image_ref: flow/repeat_n.png
-
----
-
-### repeat_until
+```yaml
 block_id: repeat_until
-display_name: Repeat Until
+block_name: Repeat Until
 category: flow_control
-
+type: container
+visual_signature: green loop block with condition/proposition input
 function:
-  summary: Loops until condition met
+  summary: Repeats contained blocks until/while a condition is met depending on selected mode.
+  use_when:
+    - loop until sensor/timer/condition
+    - unknown number of repetitions
+  avoid_when:
+    - fixed count → use repeat_n or repeat_increment
 inputs:
-  - condition: bool
+  - condition: boolean
+  - mode: until/while if available
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag Repeat Until
+  - Connect condition
+  - Place commands inside
+example_task: Repeat until timer > 10 sec.
+```
 
-connections:
-  type: container
-  accepts_children: true
+## Repeat and Increment / count with
 
-image_ref: flow/repeat_until.png
-
----
-
-### repeat_increment
+```yaml
 block_id: repeat_increment
-display_name: Repeat and Increment
+block_name: Repeat and Increment / count with
 category: flow_control
-
+type: container
+visual_signature: green loop block; text like 'count with [var] from [start] to [max] by [step] do'
 function:
-  summary: Loop with counter increment
+  summary: Sets a counter variable and increments it from start to max by step, running contained blocks each value.
+  use_when:
+    - plot functions over x values
+    - loop with counter
+    - generate x from min to max
+  avoid_when:
+    - simple repeat without counter → use repeat_n
 inputs:
-  - variable
-  - start
-  - max
-  - step
+  - variable: integer variable
+  - start: number
+  - max/to: number
+  - step/by: number
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag count with / Repeat and Increment
+  - Choose/create counter variable
+  - Set from, to, by
+  - Place loop body inside do area
+example_task: count with angleDeg from -360 to 360 by 90.
+```
 
-connections:
-  type: container
+## If
 
-image_ref: flow/repeat_increment.png
-
----
-
-### if_condition
+```yaml
 block_id: if_condition
-display_name: If
+block_name: If
 category: flow_control
-
+type: container
+visual_signature: green decision block; contains if condition and do area
 function:
-  summary: Executes block if condition true
+  summary: Runs contained blocks only if condition is true.
+  use_when:
+    - one conditional branch
+    - do something only if true
+  avoid_when:
+    - need else branch → use if_else
 inputs:
-  - condition: bool
+  - condition: boolean
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag If
+  - Connect boolean condition
+  - Place true-branch blocks inside
+example_task: If x > 10, display high.
+```
 
-connections:
-  type: container
-  accepts_children: true
+## If Else
 
-image_ref: flow/if.png
-
----
-
-### if_else
+```yaml
 block_id: if_else
-display_name: If Else
+block_name: If Else
 category: flow_control
-
+type: container
+visual_signature: green decision block with if/do/else areas
 function:
-  summary: Executes one of two branches
+  summary: Runs one block group if condition is true, otherwise runs the else group.
+  use_when:
+    - two outcomes
+    - if condition otherwise action
+  avoid_when:
+    - only one branch → use if_condition
 inputs:
-  - condition: bool
+  - condition: boolean
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag If Else
+  - Connect condition
+  - Put blocks in if and else areas
+example_task: If letter is s delete file, else check binary MSB.
+```
 
-connections:
-  type: container
-  accepts_children: true
+## Break
 
-image_ref: flow/if_else.png
-
----
-
-### break_loop
+```yaml
 block_id: break_loop
-display_name: Break
+block_name: Break
 category: flow_control
-
+type: statement
+visual_signature: green loop-control block; break current/next loop option
 function:
-  summary: Exits loop early
+  summary: Exits the current or selected loop early.
+  use_when:
+    - stop loop once condition met
+    - avoid remaining iterations
+  avoid_when:
+    - stop whole program → use exit_program
 inputs:
-  - mode: enum
+  - mode: current/next loop option
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag Break inside a loop
+  - Choose break option
+example_task: Break after first detected match.
+```
 
-connections:
-  type: statement
+## Wait
 
-image_ref: flow/break.png
-
----
-
-### wait
+```yaml
 block_id: wait
-display_name: Wait
+block_name: Wait
 category: flow_control
-
+type: statement
+visual_signature: green timing block; number input plus sec/ms dropdown
 function:
-  summary: Pauses execution for time
+  summary: Pauses execution for a fixed time.
+  use_when:
+    - slow down graph drawing
+    - wait between actions
+    - allow display update
+  avoid_when:
+    - wait for condition → use conditional_wait
 inputs:
-  - time
-  - unit: [ms, sec]
+  - time: number
+  - unit: ms/sec
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag Wait
+  - Set time
+  - Choose ms or sec
+example_task: Wait 0.01 sec after each graph point.
+```
 
-connections:
-  type: statement
+## Timer Value
 
-image_ref: flow/wait.png
-
----
-
-### timer_value
+```yaml
 block_id: timer_value
-display_name: Timer Value
+block_name: Timer Value
 category: flow_control
-
+type: value
+visual_signature: green timer block; timer id and unit selector
 function:
-  summary: Returns timer value
+  summary: Returns current timer value in selected units.
+  use_when:
+    - use elapsed time as x value
+    - display timer
+    - compute time-based values
+  avoid_when:
+    - compare timer directly → use timer_compare
+inputs:
+  - timer_id
+  - unit: ms/sec
+outputs: number
+instruction_template:
+  - Go to Flow Control
+  - Drag Timer Value into numeric socket
+  - Choose timer and unit
+example_task: Use timer seconds as graph x.
+```
+
+## Timer Compare
+
+```yaml
+block_id: timer_compare
+block_name: Timer Compare
+category: flow_control
+type: value/bool
+visual_signature: green timer comparison block; timer id, value, comparison dropdown
+function:
+  summary: Returns true/false by comparing timer to a chosen value.
+  use_when:
+    - stop after time
+    - conditional wait based on timer
+    - if timer > value
+  avoid_when:
+    - need numeric timer value → use timer_value
 inputs:
   - timer_id
   - unit
-outputs:
-  - number
-
-connections:
-  type: value
-
-image_ref: flow/timer.png
-
----
-
-### timer_compare
-block_id: timer_compare
-display_name: Timer Compare
-category: flow_control
-
-function:
-  summary: Compares timer with value
-inputs:
-  - timer_id
   - value
-  - comparison
-outputs:
-  - bool
+  - comparison: =/!=/</<=/>/>=
+outputs: boolean
+instruction_template:
+  - Go to Flow Control
+  - Drag Timer Compare into condition socket
+  - Set timer, unit, value, comparison
+example_task: Repeat until timer >= 10 sec.
+```
 
-connections:
-  type: value
+## Reset Timer
 
-image_ref: flow/timer_compare.png
-
----
-
-### reset_timer
+```yaml
 block_id: reset_timer
-display_name: Reset Timer
+block_name: Reset Timer
 category: flow_control
-
+type: statement
+visual_signature: green reset timer block; timer id input
 function:
-  summary: Resets timer
+  summary: Resets selected timer to zero.
+  use_when:
+    - start timing from now
+    - clear timer before measurement
+  avoid_when:
+    - reset graph → use graph_reset
 inputs:
   - timer_id
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag Reset Timer
+  - Choose timer
+example_task: Reset timer before repeat_until loop.
+```
 
-connections:
-  type: statement
+## Conditional Wait / Wait For
 
-image_ref: flow/reset_timer.png
-
----
-
-### conditional_wait
+```yaml
 block_id: conditional_wait
-display_name: Conditional Wait
+block_name: Conditional Wait / Wait For
 category: flow_control
-
+type: statement
+visual_signature: green wait-for block; condition/comparison input
 function:
-  summary: Waits until condition becomes true
+  summary: Pauses program until condition becomes true.
+  use_when:
+    - wait for sensor threshold
+    - wait for timer condition
+    - wait for virtual input
+  avoid_when:
+    - fixed time pause → use wait
 inputs:
-  - condition
+  - condition: boolean
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag Conditional Wait / Wait For
+  - Connect boolean condition
+example_task: Wait until angle >= 90.
+```
 
-connections:
-  type: statement
+## Exit Program
 
-image_ref: flow/conditional_wait.png
-
----
-
-### exit_program
+```yaml
 block_id: exit_program
-display_name: Exit Program
+block_name: Exit Program
 category: flow_control
-
+type: statement
+visual_signature: green exit block
 function:
-  summary: Stops program execution
-inputs: []
+  summary: Stops the whole program immediately.
+  use_when:
+    - end program early
+    - stop after error/condition
+  avoid_when:
+    - stop only one task → use stop_task
+inputs:
+  - none
 outputs: none
+instruction_template:
+  - Go to Flow Control
+  - Drag Exit Program inside condition or sequence
+example_task: If timer > 10 sec, exit program.
+```
 
-connections:
-  type: statement
-
-image_ref: flow/exit.png
-
-
-# =========================
 # Logic
-# =========================
 
-### logical_condition
+Use for boolean logic, bitwise operations, and binary/decimal conversion.
+
+## Logical Condition
+
+```yaml
 block_id: logical_condition
-display_name: Logical Condition
+block_name: Logical Condition
 category: logic
-
+type: value/bool
+visual_signature: blue logic block; proposition/boolean expression slot
 function:
-  summary: Evaluates boolean expression
+  summary: Creates/evaluates a boolean condition.
+  use_when:
+    - build true/false expression
+    - feed if/repeat/wait condition
+  avoid_when:
+    - numeric comparison → use number_compare when comparing numbers
 inputs:
-  - condition
-outputs:
-  - bool
+  - condition/proposition
+outputs: boolean
+instruction_template:
+  - Go to Logic
+  - Drag Logical Condition into condition socket
+  - Build/connect proposition
+example_task: Use true condition in if block.
+```
 
-connections:
-  type: value
+## Not
 
-image_ref: logic/condition.png
-
----
-
-### not_operator
+```yaml
 block_id: not_operator
-display_name: Not
+block_name: Not
 category: logic
-
+type: value
+visual_signature: blue logic NOT block
 function:
-  summary: Inverts boolean/bit value
+  summary: Inverts boolean/bit value.
+  use_when:
+    - reverse condition
+    - convert true to false
+    - invert bit
+  avoid_when:
+    - numeric negative → use unary_operation neg
 inputs:
-  - value
-outputs:
-  - value
+  - value: bool/bit
+outputs: bool/bit
+instruction_template:
+  - Go to Logic
+  - Drag Not
+  - Connect value to invert
+example_task: If not touch_sensor then wait.
+```
 
-connections:
-  type: value
+## Bitwise Operation
 
-image_ref: logic/not.png
-
----
-
-### bitwise_operation
+```yaml
 block_id: bitwise_operation
-display_name: Bitwise Operation
+block_name: Bitwise Operation
 category: logic
-
+type: value
+visual_signature: blue bitwise block; two operands and operator dropdown
 function:
-  summary: Performs bitwise operations
+  summary: Performs bitwise operations on 8-bit numbers.
+  use_when:
+    - AND/OR/XOR/rotate bits
+    - manipulate LED/switch values
+  avoid_when:
+    - boolean if conditions → use logical_condition/number_compare
 inputs:
-  - a
-  - b
-  - operation
-outputs:
-  - number
+  - a: number 0-255
+  - b: number 0-255
+  - operation: and/or/xor/rotateL/rotateR
+outputs: number 0-255
+instruction_template:
+  - Go to Logic
+  - Drag Bitwise Operation
+  - Set operands
+  - Choose operation
+example_task: Compute 2 AND 3.
+```
 
-connections:
-  type: value
+## Binary to Decimal
 
-constraints:
-  - inputs 0–255
-
-image_ref: logic/bitwise.png
-
----
-
-### binary_to_decimal
+```yaml
 block_id: binary_to_decimal
-display_name: Binary to Decimal
+block_name: Binary to Decimal
 category: logic
-
+type: value
+visual_signature: blue converter block; four bit inputs bit0-bit3
 function:
-  summary: Converts 4-bit binary to decimal
+  summary: Converts 4 binary bits to decimal 0-15.
+  use_when:
+    - convert switch bits to number
+    - interpret binary output
+  avoid_when:
+    - decimal to bits → use decimal_to_binary
 inputs:
-  - bits
-outputs:
-  - number [0-15]
+  - bit0 LSB
+  - bit1
+  - bit2
+  - bit3 MSB
+outputs: number 0-15
+instruction_template:
+  - Go to Logic
+  - Drag Binary to Decimal
+  - Set/connect four bits
+example_task: Convert 1010 to decimal.
+```
 
-connections:
-  type: value
+## Decimal to Binary
 
-image_ref: logic/bin_to_dec.png
-
----
-
-### decimal_to_binary
+```yaml
 block_id: decimal_to_binary
-display_name: Decimal to Binary
+block_name: Decimal to Binary
 category: logic
-
+type: value/multi-output
+visual_signature: blue converter block; decimal input and outputs bit0-bit3
 function:
-  summary: Converts decimal to 4-bit binary
+  summary: Converts decimal 0-15 to four binary bits; bit3 is MSB.
+  use_when:
+    - check MSB
+    - show decimal as binary
+    - drive LEDs/conditions by bits
+  avoid_when:
+    - binary bits to decimal → use binary_to_decimal
 inputs:
-  - number
-outputs:
-  - bits
+  - number: decimal 0-15
+outputs: bit0 LSB, bit1, bit2, bit3 MSB
+instruction_template:
+  - Go to Logic
+  - Drag Decimal to Binary
+  - Connect number
+  - Use bit3 output when task says MSB
+example_task: Convert random number n to binary, check MSB bit3.
+important_note: bit3 is MSB and bit0 is LSB for 4-bit output
+```
 
-connections:
-  type: value
+## Conditional Value
 
-image_ref: logic/dec_to_bin.png
-
----
-
-### conditional_value
+```yaml
 block_id: conditional_value
-display_name: Conditional Value
+block_name: Conditional Value
 category: logic
-
+type: value
+visual_signature: blue ternary block; condition, true value, false value
 function:
-  summary: Returns value based on condition
+  summary: Returns one value if condition is true and another if false.
+  use_when:
+    - choose value inside expression
+    - set variable based on condition
+  avoid_when:
+    - run blocks conditionally → use if/if_else
 inputs:
-  - condition
+  - condition: boolean
   - true_value
   - false_value
-outputs:
-  - value
+outputs: value
+instruction_template:
+  - Go to Logic
+  - Drag Conditional Value into value socket
+  - Connect condition
+  - Set true and false values
+example_task: Set x to 1 if y is true, else 0.
+```
 
-connections:
-  type: value
-
-image_ref: logic/ternary.png
-
-
-
-
-
-# =========================
 # Math
-# =========================
 
-### int_value
+Use for numeric constants, arithmetic, custom expressions, trig, random, compare, range, statistics.
+
+## Integer Value
+
+```yaml
 block_id: int_value
-display_name: Integer Value
+block_name: Integer Value
 category: math
-
+type: value
+visual_signature: green number block; constant integer field
 function:
-  summary: Returns a constant integer
-inputs: []
-outputs:
-  - number
-
-connections:
-  type: value
-
-image_ref: math/int_value.png
-
----
-
-### math_operation
-block_id: math_operation
-display_name: Operation (2 values)
-category: math
-
-function:
-  summary: Performs arithmetic on two numbers
-inputs:
-  - a
-  - b
-  - operation: [+, -, *, /, ^]
-outputs:
-  - number
-
-connections:
-  type: value
-
-image_ref: math/op2.png
-
----
-
-### math_expression
-block_id: math_expression
-display_name: Expression (a,b,c,x)
-category: math
-
-visual_signature:
-  color: green
-  shape: value block
-  contains:
-    - white free-text formula field
-    - labels: a=, b=, c=, x=
-  example_visual_text:
-    - "x*3.1416/180 a=1 b=1 c=1 x=angleDeg"
-
-function:
-  summary: Evaluates a custom numeric formula written as text, using input parameters a, b, c, and x.
+  summary: Provides a hard-coded integer/number value.
   use_when:
-    - the calculation is not available as a simple built-in block
-    - you need a formula such as x*3.1416/180
-    - you need to convert degrees to radians
-    - you need a polynomial or custom expression
-  prefer_over:
-    - math_operation when the formula needs more than one simple operation
-    - trig_function when preparing/scaling the x-axis before plotting
-  do_not_use_for:
-    - direct sin/cos/tan calculation → use trig_function
-
+    - enter numeric constants
+    - set loop ranges
+    - supply min/max/step values
+  avoid_when:
+    - computed expression → use math_expression/math_operation
 inputs:
-  - expression_string:
-      type: string
-      required: true
-      examples:
-        - "x*3.1416/180"
-        - "a*x*x+b*x+c"
+  - number literal
+outputs: number
+instruction_template:
+  - Go to Math
+  - Drag Integer Value into numeric socket
+  - Type number
+example_task: Use 360 as loop max.
+```
+
+## Operation (2 values)
+
+```yaml
+block_id: math_operation
+block_name: Operation (2 values)
+category: math
+type: value
+visual_signature: green operation block; two numeric sockets and operator dropdown
+function:
+  summary: Performs one arithmetic operation on two values.
+  use_when:
+    - simple + - * / ^
+    - combine two numbers
+  avoid_when:
+    - multi-part formula or typed expression → use math_expression
+inputs:
+  - a: number
+  - b: number
+  - operation: + - * / ^
+outputs: number
+instruction_template:
+  - Go to Math
+  - Drag Operation (2 values)
+  - Connect a and b
+  - Choose operation
+example_task: Compute x + 1.
+```
+
+## Expression (a,b,c,x)
+
+```yaml
+block_id: math_expression
+block_name: Expression (a,b,c,x)
+category: math
+type: value
+visual_signature: green value block with white free-text formula field and labels a= b= c= x=; example text 'x*3.1416/180 a=1 b=1 c=1 x=angleDeg'
+function:
+  summary: Evaluates a custom numeric formula written as text using parameters a, b, c, and x.
+  use_when:
+    - formula not available as simple block
+    - degrees-to-radians conversion
+    - polynomial/custom expression
+    - scaling x-axis before graphing
+  avoid_when:
+    - direct sin/cos/tan calculation → use trig_function
+    - one simple + operation → use math_operation
+inputs:
+  - expression_string: string examples 'x*3.1416/180', 'a*x*x+b*x+c'
   - a: number
   - b: number
   - c: number
-  - x: number_or_variable
-
-outputs:
-  - number
-
+  - x: number/variable
+outputs: number
+instruction_template:
+  - Go to Math
+  - Drag Expression (a,b,c,x) into value slot
+  - Type formula in white text field
+  - Fill a/b/c inputs
+  - Put source variable into x input
+example_task: Set xRad to expression 'x*3.1416/180' with x=angleDeg.
 common_recipes:
   degrees_to_radians:
-    task: convert angle in degrees to radians for graph x-axis
+    task: convert loop angle in degrees to radians for graph x-axis
     expression_string: "x*3.1416/180"
     a: 1
     b: 1
     c: 1
     x: angleDeg
     output_variable: xRad
+  polynomial:
+    expression_string: "a*x*x+b*x+c"
+    use_for: parabolas and custom formulas
+```
 
-instruction_template:
-  - Go to Math category
-  - Select Expression (a,b,c,x) block
-  - Drag it into the value slot of Set Variable
-  - Type the formula into the white text field
-  - Put the source variable into the x input
-  - Use the output as the computed value
+## Unary Operation
 
-example:
-  task: plot sin/cos from -2pi to +2pi
-  steps:
-    - loop angleDeg from -360 to 360 by 90
-    - set xRad to math_expression "x*3.1416/180" with x=angleDeg
-    - set ySin to trig_function sin(angleDeg)
-    - draw graph point x=xRad, y=ySin
-
-### unary_operation
+```yaml
 block_id: unary_operation
-display_name: Unary Operation
+block_name: Unary Operation
 category: math
-
+type: value
+visual_signature: green single-input operation block; dropdown includes sqrt, abs, ln, exp
 function:
-  summary: Applies function to single number
+  summary: Applies a one-input numeric function.
+  use_when:
+    - sqrt(x)
+    - absolute value
+    - negative
+    - log/exp/powers
+  avoid_when:
+    - trig functions → use trig_function
+    - multi-input formula → use math_expression
 inputs:
-  - value
-  - operation: [sqrt, abs, neg, ln, log10, exp, 10^x, 2^x]
-outputs:
-  - number
+  - value: number
+  - operation: sqrt/abs/neg/ln/log10/exp/10^x/2^x
+outputs: number
+instruction_template:
+  - Go to Math
+  - Drag Unary Operation
+  - Choose operation
+  - Connect value
+example_task: Compute sqrt(x).
+```
 
-connections:
-  type: value
+## Trigonometric Function
 
-image_ref: math/unary.png
-
----
-
-### trig_function
+```yaml
 block_id: trig_function
-display_name: Trigonometric Function
+block_name: Trigonometric Function
 category: math
-
+type: value
+visual_signature: green trig block; dropdown sin/cos/tan/asin/acos/atan and numeric input
 function:
-  summary: Computes trig function in degrees
+  summary: Computes trigonometric function. Input angle is in degrees for sin/cos/tan.
+  use_when:
+    - calculate sin/cos/tan of angle in degrees
+    - plot sine/cosine y-values
+  avoid_when:
+    - convert degrees to radians for graph x-axis → use math_expression
+    - sqrt/log → use unary_operation
 inputs:
-  - value
-  - operation: [sin, cos, tan, asin, acos, atan]
-outputs:
-  - number
+  - value: number in degrees
+  - operation: sin/cos/tan/asin/acos/atan
+outputs: number
+instruction_template:
+  - Go to Math
+  - Drag Trigonometric Function
+  - Choose sin/cos/tan
+  - Put angleDeg variable into input
+example_task: Set ySin to sin(angleDeg).
+important_note: input for sin/cos/tan is degrees; do not feed radians into this block unless the environment explicitly changed settings
+paired_recipe: for graph x-axis in radians, compute y with angleDeg but draw x using xRad from math_expression
+```
 
-connections:
-  type: value
+## Rounding & Numeric Ops
 
-constraints:
-  - input in degrees
-
-image_ref: math/trig.png
-
----
-
-### rounding
+```yaml
 block_id: rounding
-display_name: Rounding & Numeric Ops
+block_name: Rounding & Numeric Ops
 category: math
-
+type: value
+visual_signature: green rounding block; dropdown round/ceil/floor/truncate/remainder/int_div
 function:
-  summary: Applies rounding or integer operations
+  summary: Applies rounding or integer-style numeric operation.
+  use_when:
+    - clean display formatting
+    - truncate coefficient
+    - integer division/remainder
+  avoid_when:
+    - ordinary arithmetic → use math_operation
 inputs:
-  - value
-  - operation: [round, ceil, floor, truncate, remainder, int_div]
-outputs:
-  - number
+  - value: number
+  - operation: round/ceil/floor/truncate/remainder/int_div
+outputs: number
+instruction_template:
+  - Go to Math
+  - Drag Rounding & Numeric Ops
+  - Choose operation
+  - Connect value
+example_task: Truncate slope before showing on LCD.
+```
 
-connections:
-  type: value
+## List Statistics
 
-image_ref: math/round.png
-
----
-
-### list_statistics
+```yaml
 block_id: list_statistics
-display_name: List Statistics
+block_name: List Statistics
 category: math
-
+type: value
+visual_signature: green statistics block; list input and operation selector
 function:
-  summary: Computes statistical values from list
+  summary: Computes a statistic from a numeric list.
+  use_when:
+    - sum/average/min/max/list analysis
+    - analyze collected values
+  avoid_when:
+    - single number operation → use unary_operation
 inputs:
-  - list
-  - operation
-outputs:
-  - number
+  - list: numeric list
+  - operation: sum/min/max/average/median/mode/std/random item
+outputs: number/value
+instruction_template:
+  - Go to Math
+  - Drag List Statistics
+  - Connect list
+  - Choose statistic
+example_task: Compute average velocity list.
+```
 
-connections:
-  type: value
+## Constrain Value
 
-image_ref: math/list_stats.png
-
----
-
-### constrain_value
+```yaml
 block_id: constrain_value
-display_name: Constrain Value
+block_name: Constrain Value
 category: math
-
+type: value
+visual_signature: green clamp block; min/max/value inputs
 function:
-  summary: Clamps value between bounds
+  summary: Clamps value between min and max limits.
+  use_when:
+    - keep motor power safe
+    - limit display/bar range
+    - prevent out-of-range values
+  avoid_when:
+    - test whether inside range → use range_check
 inputs:
-  - min
-  - max
-  - value
-outputs:
-  - number
+  - min: number
+  - max: number
+  - value: number
+outputs: number between min and max
+instruction_template:
+  - Go to Math
+  - Drag Constrain Value
+  - Set min/max
+  - Connect value
+example_task: Constrain speed between -100 and 100.
+```
 
-connections:
-  type: value
+## Arctan2
 
-image_ref: math/constrain.png
-
----
-
-### atan2
+```yaml
 block_id: atan2
-display_name: Arctan2
+block_name: Arctan2
 category: math
-
+type: value
+visual_signature: green atan2 block; x and y inputs
 function:
-  summary: Computes angle from X,Y coordinates
+  summary: Computes angle of point/vector using x,y coordinates, range -180 to 180 degrees.
+  use_when:
+    - convert joystick x/y to direction angle
+    - compute vector angle
+  avoid_when:
+    - simple tan inverse of one number → use trig_function atan
 inputs:
-  - x
-  - y
-outputs:
-  - number [-180,180]
+  - x: number
+  - y: number
+outputs: number -180 to 180
+instruction_template:
+  - Go to Math
+  - Drag Arctan2
+  - Connect x and y
+example_task: Compute joystick direction angle.
+```
 
-connections:
-  type: value
+## Random Fraction
 
-image_ref: math/atan2.png
-
----
-
-### random_fraction
+```yaml
 block_id: random_fraction
-display_name: Random Fraction
+block_name: Random Fraction
 category: math
-
+type: value
+visual_signature: green random block; no inputs; returns 0-1 fraction
 function:
-  summary: Returns random float [0,1)
-inputs: []
-outputs:
-  - number
+  summary: Generates random decimal in [0,1).
+  use_when:
+    - probability
+    - random scaling
+    - simulation
+  avoid_when:
+    - random whole number range → use random_integer
+inputs:
+  - none
+outputs: number 0 <= value < 1
+instruction_template:
+  - Go to Math
+  - Drag Random Fraction into numeric socket
+example_task: If random fraction < 0.5, choose A.
+```
 
-connections:
-  type: value
+## Random Integer
 
-image_ref: math/random_fraction.png
-
----
-
-### random_integer
+```yaml
 block_id: random_integer
-display_name: Random Integer
+block_name: Random Integer
 category: math
-
+type: value
+visual_signature: green random integer block; min/max inputs
 function:
-  summary: Returns random integer in range
+  summary: Generates random integer between min and max inclusive.
+  use_when:
+    - random index
+    - random choice by number
+    - dice-like behavior
+  avoid_when:
+    - random decimal → use random_fraction
 inputs:
-  - min
-  - max
-outputs:
-  - number
+  - min: integer
+  - max: integer
+outputs: integer
+instruction_template:
+  - Go to Math
+  - Drag Random Integer
+  - Set min
+  - Set max
+  - Use output to set variable
+example_task: Set n to random integer 1 to 5.
+```
 
-connections:
-  type: value
+## Number Property Check
 
-image_ref: math/random_int.png
-
----
-
-### number_property
+```yaml
 block_id: number_property
-display_name: Number Property Check
+block_name: Number Property Check
 category: math
-
+type: value/bool
+visual_signature: green property check block; number input and property dropdown
 function:
-  summary: Checks numeric property
+  summary: Checks whether a number satisfies selected property.
+  use_when:
+    - even/odd/prime/positive/negative/divisible tests
+    - condition by numeric property
+  avoid_when:
+    - compare two numbers → use number_compare
 inputs:
-  - value
-  - property: [even, odd, prime, positive, negative, divisible]
-outputs:
-  - bool
+  - value: number
+  - property: even/odd/prime/positive/negative/divisible
+outputs: boolean
+instruction_template:
+  - Go to Math
+  - Drag Number Property Check into condition socket
+  - Choose property
+  - Connect value
+example_task: If n is even, display even.
+```
 
-connections:
-  type: value
+## Number Comparison
 
-image_ref: math/property.png
-
----
-
-### number_compare
+```yaml
 block_id: number_compare
-display_name: Number Comparison
+block_name: Number Comparison
 category: math
-
+type: value/bool
+visual_signature: green compare block; two inputs and operator dropdown
 function:
-  summary: Compares two numbers
+  summary: Compares two numeric values and returns true/false.
+  use_when:
+    - x > 10
+    - timer <= 5
+    - sensor equals threshold
+  avoid_when:
+    - string comparison → use compare_strings
 inputs:
-  - a
-  - b
-  - operator: [=, !=, <, <=, >, >=]
-outputs:
-  - bool
+  - a: number
+  - b: number
+  - operator: = != < <= > >=
+outputs: boolean
+instruction_template:
+  - Go to Math
+  - Drag Number Comparison into condition socket
+  - Connect a and b
+  - Choose operator
+example_task: If sound > 80.
+```
 
-connections:
-  type: value
+## Range Check
 
-image_ref: math/compare.png
-
----
-
-### range_check
+```yaml
 block_id: range_check
-display_name: Range Check
+block_name: Range Check
 category: math
-
+type: value/bool
+visual_signature: green range block; value/min/max/mode inputs
 function:
-  summary: Checks if value is inside/outside range
+  summary: Checks whether a value is inside or outside a range.
+  use_when:
+    - threshold bands
+    - valid input range
+    - sensor in range
+  avoid_when:
+    - force value into range → use constrain_value
 inputs:
-  - value
-  - min
-  - max
-  - mode: [inside, outside]
-outputs:
-  - bool
+  - value: number
+  - min: number
+  - max: number
+  - mode: inside/outside
+outputs: boolean
+instruction_template:
+  - Go to Math
+  - Drag Range Check
+  - Set value/min/max
+  - Choose inside or outside
+example_task: If angle is inside 0 to 90.
+```
 
-connections:
-  type: value
-
-image_ref: math/range.png
-
-
-# =========================
 # Variables
-# =========================
 
-### set_variable
+Use for storing, retrieving, comparing, incrementing, or toggling named values.
+
+## Set Variable
+
+```yaml
 block_id: set_variable
-display_name: Set Variable
+block_name: Set Variable
 category: variables
-
+type: statement
+visual_signature: variable block; text like 'set [var] to [value]'
 function:
-  summary: Assigns value to variable
+  summary: Assigns a value to a variable.
+  use_when:
+    - initialize variables
+    - store calculation result
+    - save sensor/text/random output
+  avoid_when:
+    - increment existing integer → use change_variable
 inputs:
-  - variable
-  - value
+  - variable: chosen variable
+  - value: matching typed value
 outputs: none
+instruction_template:
+  - Go to Variables
+  - Create variable if needed
+  - Drag Set Variable
+  - Choose variable
+  - Connect value
+example_task: Set xRad to radians expression.
+```
 
-connections:
-  type: statement
+## Get Variable
 
-image_ref: vars/set.png
-
----
-
-### get_variable
+```yaml
 block_id: get_variable
-display_name: Get Variable
+block_name: Get Variable
 category: variables
-
+type: value
+visual_signature: small variable value block with variable name dropdown
 function:
-  summary: Returns variable value
-inputs: []
-outputs:
-  - value
+  summary: Returns current variable value.
+  use_when:
+    - reuse stored value
+    - feed variable into math/display/condition
+  avoid_when:
+    - assign new value → use set_variable
+inputs:
+  - variable selection
+outputs: value
+instruction_template:
+  - Go to Variables
+  - Drag variable value block
+  - Choose variable
+  - Plug into matching socket
+example_task: Use x as graph X value.
+```
 
-connections:
-  type: value
+## Change Integer Variable
 
-image_ref: vars/get.png
-
----
-
-### change_variable
+```yaml
 block_id: change_variable
-display_name: Change Integer Variable
+block_name: Change Integer Variable
 category: variables
-
+type: statement
+visual_signature: variable block; text like 'change [var] by [delta]'
 function:
-  summary: Increments/decrements variable
+  summary: Adds/subtracts delta to an integer variable.
+  use_when:
+    - increment counter
+    - count events
+    - update score
+  avoid_when:
+    - set exact value → use set_variable
 inputs:
-  - variable
-  - delta
+  - variable: integer variable
+  - delta: integer
 outputs: none
+instruction_template:
+  - Go to Variables
+  - Drag Change Integer Variable
+  - Choose variable
+  - Set delta
+example_task: Increment count by 1.
+```
 
-connections:
-  type: statement
+## Compare Variable
 
-image_ref: vars/change.png
-
----
-
-### compare_variable
+```yaml
 block_id: compare_variable
-display_name: Compare Variable
+block_name: Compare Variable
 category: variables
-
+type: value/bool
+visual_signature: variable comparison block; variable dropdown and comparison value
 function:
-  summary: Compares variable to value
+  summary: Compares variable value to another value.
+  use_when:
+    - check variable equals/greater/less than
+    - if variable reached target
+  avoid_when:
+    - compare arbitrary numbers → use number_compare
 inputs:
   - variable
   - value
-outputs:
-  - bool
+  - operator if available
+outputs: boolean
+instruction_template:
+  - Go to Variables
+  - Drag Compare Variable into condition
+  - Choose variable
+  - Set comparison value
+example_task: If count > 3.
+```
 
-connections:
-  type: value
+## Toggle Bool
 
-image_ref: vars/compare.png
-
----
-
-### toggle_bool
+```yaml
 block_id: toggle_bool
-display_name: Toggle Bool
+block_name: Toggle Bool
 category: variables
-
+type: statement
+visual_signature: boolean variable block; flips true/false
 function:
-  summary: Flips boolean variable
+  summary: Flips a boolean variable from true to false or false to true.
+  use_when:
+    - toggle state
+    - alternate behavior
+    - switch mode
+  avoid_when:
+    - numeric increment → use change_variable
 inputs:
-  - variable
+  - variable: boolean variable
 outputs: none
+instruction_template:
+  - Go to Variables
+  - Drag Toggle Bool
+  - Choose boolean variable
+example_task: Toggle isRunning.
+```
 
-connections:
-  type: statement
-
-image_ref: vars/toggle.png
-
-
-
-
-
-# =========================
 # Text
-# =========================
 
-### string_value
+Use for string creation, comparison, length, character access, substring, case conversion, translation, links.
+
+## String Value
+
+```yaml
 block_id: string_value
-display_name: String Value
+block_name: String Value
 category: text
-
+type: value
+visual_signature: yellow string block; quoted text field(s), can join strings
 function:
-  summary: Creates or concatenates string values
+  summary: Creates a string literal or joins string parts.
+  use_when:
+    - hard-code text
+    - build message
+    - make filename/question text
+  avoid_when:
+    - append to variable in-place → use append_text
 inputs:
-  - values: list[string]
-outputs:
-  - string
+  - values: one or more strings/variables
+outputs: string
+instruction_template:
+  - Go to Text
+  - Drag String Value
+  - Type text or connect parts
+example_task: Create string 'test csv'.
+```
 
-connections:
-  type: value
+## Compare Strings
 
-image_ref: text/string_value.png
-
----
-
-### compare_strings
+```yaml
 block_id: compare_strings
-display_name: Compare Strings
+block_name: Compare Strings
 category: text
-
+type: value/bool
+visual_signature: yellow compare strings block; two string inputs A and B
 function:
-  summary: Checks if two strings are equal
+  summary: Checks whether two strings are equal.
+  use_when:
+    - if letter equals 's'
+    - compare command/name/text
+  avoid_when:
+    - compare numbers → use number_compare
 inputs:
   - a: string
   - b: string
-outputs:
-  - bool
+outputs: boolean
+instruction_template:
+  - Go to Text
+  - Drag Compare Strings into condition
+  - Connect A and B
+example_task: Check if c equals 's'.
+```
 
-connections:
-  type: value
+## Is String Empty
 
-image_ref: text/compare.png
-
----
-
-### is_empty_string
+```yaml
 block_id: is_empty_string
-display_name: Is String Empty
+block_name: Is String Empty
 category: text
-
+type: value/bool
+visual_signature: yellow empty-string block; one text input
 function:
-  summary: Returns true if string is empty
+  summary: Returns true if text is empty.
+  use_when:
+    - validate user input
+    - check missing SMS/voice text
+  avoid_when:
+    - list empty → use list_is_empty
 inputs:
   - text: string
-outputs:
-  - bool
+outputs: boolean
+instruction_template:
+  - Go to Text
+  - Drag Is String Empty
+  - Connect text
+example_task: If keyboard input is empty.
+```
 
-connections:
-  type: value
+## String Length
 
-image_ref: text/is_empty.png
-
----
-
-### string_length
+```yaml
 block_id: string_length
-display_name: String Length
+block_name: String Length
 category: text
-
+type: value
+visual_signature: yellow length block; one text input
 function:
-  summary: Returns length of string
+  summary: Returns number of characters in a string.
+  use_when:
+    - validate text length
+    - choose random character index
+    - loop over text
+  avoid_when:
+    - list length → use list_length
 inputs:
   - text: string
-outputs:
-  - number
+outputs: number
+instruction_template:
+  - Go to Text
+  - Drag String Length
+  - Connect text
+example_task: Get length of variable s.
+```
 
-connections:
-  type: value
+## Append Text
 
-image_ref: text/length.png
-
----
-
-### append_text
+```yaml
 block_id: append_text
-display_name: Append Text
+block_name: Append Text
 category: text
-
+type: statement
+visual_signature: yellow append block; variable plus text input
 function:
-  summary: Appends text to existing string variable
+  summary: Appends text to an existing string variable.
+  use_when:
+    - build message gradually
+    - add value to string log
+  avoid_when:
+    - create one-off joined string → use string_value
 inputs:
-  - variable: string
+  - variable: string variable
   - text: string
 outputs: none
+instruction_template:
+  - Go to Text
+  - Drag Append Text
+  - Choose string variable
+  - Connect text to append
+example_task: Append ', done' to message.
+```
 
-connections:
-  type: statement
+## Char At
 
-image_ref: text/append.png
-
----
-
-### char_at
+```yaml
 block_id: char_at
-display_name: Char At
+block_name: Char At
 category: text
-
+type: value
+visual_signature: yellow char-at block; text input and index input
 function:
-  summary: Returns character at index
+  summary: Returns character at a given index/position in a string.
+  use_when:
+    - get random letter from text
+    - inspect character
+    - parse command
+  avoid_when:
+    - find substring position → use find_substring
 inputs:
   - text: string
-  - index: number
-outputs:
-  - string
+  - index: number; must be valid
+outputs: single-character string
+instruction_template:
+  - Go to Text
+  - Drag Char At into value socket
+  - Connect text variable
+  - Connect index number
+example_task: Get letter at random position n in s.
+```
 
-connections:
-  type: value
+## Find Substring
 
-constraints:
-  - index must be within string bounds
-
-image_ref: text/char_at.png
-
----
-
-### find_substring
+```yaml
 block_id: find_substring
-display_name: Find Substring
+block_name: Find Substring
 category: text
-
+type: value
+visual_signature: yellow find substring block; text and substring inputs
 function:
-  summary: Finds substring index
+  summary: Returns index of first/last substring occurrence; returns -1 if not found.
+  use_when:
+    - check where text appears
+    - parse command string
+  avoid_when:
+    - get character at known index → use char_at
 inputs:
   - text: string
   - substring: string
-outputs:
-  - number
+outputs: number index or -1
+instruction_template:
+  - Go to Text
+  - Drag Find Substring
+  - Connect text and substring
+example_task: Find index of 'csv' in s.
+```
 
-connections:
-  type: value
+## Get Substring
 
-constraints:
-  - returns -1 if not found
-
-image_ref: text/find_substring.png
-
----
-
-### get_substring
+```yaml
 block_id: get_substring
-display_name: Get Substring
+block_name: Get Substring
 category: text
-
+type: value
+visual_signature: yellow substring block; text/start/end inputs
 function:
-  summary: Extracts substring from index range
+  summary: Extracts a substring between indexes.
+  use_when:
+    - slice part of text
+    - extract command/file extension
+  avoid_when:
+    - single character → use char_at
 inputs:
   - text: string
   - start: number
   - end: number
-outputs:
-  - string
+outputs: string
+instruction_template:
+  - Go to Text
+  - Drag Get Substring
+  - Connect text
+  - Set start/end
+example_task: Extract characters 0 to 3.
+```
 
-connections:
-  type: value
+## Case Conversion
 
-image_ref: text/substr.png
-
----
-
-### case_convert
+```yaml
 block_id: case_convert
-display_name: Case Conversion
+block_name: Case Conversion
 category: text
-
+type: value
+visual_signature: yellow case block; text input and upper/lower/title dropdown
 function:
-  summary: Converts string case
+  summary: Converts text case.
+  use_when:
+    - normalize user input
+    - format labels/messages
+  avoid_when:
+    - translation → use translate_text
 inputs:
   - text: string
-  - mode: [upper, lower, title]
-outputs:
-  - string
+  - mode: upper/lower/title
+outputs: string
+instruction_template:
+  - Go to Text
+  - Drag Case Conversion
+  - Connect text
+  - Choose mode
+example_task: Convert command to lower case.
+```
 
-connections:
-  type: value
+## Translate
 
-image_ref: text/case.png
-
----
-
-### translate_text
+```yaml
 block_id: translate_text
-display_name: Translate
+block_name: Translate
 category: text
-
+type: value
+visual_signature: yellow translate block; source language, text, target language
 function:
-  summary: Translates text between languages
+  summary: Translates text from one language to another.
+  use_when:
+    - multilingual display
+    - translate user text
+  avoid_when:
+    - ask external question → use ask_llm
 inputs:
   - source_lang
   - target_lang
   - text
-outputs:
-  - string
+outputs: translated string
+instruction_template:
+  - Go to Text
+  - Drag Translate
+  - Choose source and target languages
+  - Connect text
+example_task: Translate 'Hello' from English to Hebrew.
+```
 
-connections:
-  type: value
+## Run Link
 
-image_ref: text/translate.png
-
----
-
-### run_link
+```yaml
 block_id: run_link
-display_name: Run Link
+block_name: Run Link
 category: text
-
+type: statement
+visual_signature: yellow URL/link block; web link text input
 function:
-  summary: Opens a web link
+  summary: Opens/runs a web link.
+  use_when:
+    - open website
+    - launch a URL
+  avoid_when:
+    - ask search/LLM question → use ask_llm
 inputs:
   - url: string
 outputs: none
+instruction_template:
+  - Go to Text
+  - Drag Run Link
+  - Enter URL
+example_task: Open robo-phone.com.
+```
 
-connections:
-  type: statement
-
-image_ref: text/link.png
-
-
-# =========================
 # Lists
-# =========================
 
-### create_list
+Use for creating, editing, querying, converting, or sorting arrays/lists.
+
+## Create Empty List
+
+```yaml
 block_id: create_list
-display_name: Create Empty List
+block_name: Create Empty List
 category: lists
-
+type: value
+visual_signature: list block; creates []
 function:
-  summary: Creates an empty list
-inputs: []
-outputs:
-  - list
+  summary: Creates an empty list.
+  use_when:
+    - initialize list variable
+    - collect values later
+  avoid_when:
+    - known initial values → use list_init
+inputs:
+  - none
+outputs: empty list
+instruction_template:
+  - Go to Lists
+  - Drag Create Empty List
+  - Use it in Set Variable
+example_task: Set values to empty list.
+```
 
-connections:
-  type: value
+## Initialize List
 
-image_ref: lists/create.png
-
----
-
-### list_init
+```yaml
 block_id: list_init
-display_name: Initialize List
+block_name: Initialize List
 category: lists
-
+type: value
+visual_signature: list block with length and item values
 function:
-  summary: Creates list with predefined values
+  summary: Creates a list with predefined values/length.
+  use_when:
+    - make starting list
+    - prepare fixed list of values
+  avoid_when:
+    - all repeated same value → use list_repeat
 inputs:
   - length
   - values
-outputs:
-  - list
+outputs: list
+instruction_template:
+  - Go to Lists
+  - Drag Initialize List
+  - Set length
+  - Fill values
+example_task: Create list [1,2,3].
+```
 
-connections:
-  type: value
+## Repeat Value List
 
-image_ref: lists/init.png
-
----
-
-### list_repeat
+```yaml
 block_id: list_repeat
-display_name: Repeat Value List
+block_name: Repeat Value List
 category: lists
-
+type: value
+visual_signature: list block with length and repeated value
 function:
-  summary: Creates list of repeated value
+  summary: Creates list by repeating same value.
+  use_when:
+    - initialize same placeholder values
+    - make fixed-size default list
+  avoid_when:
+    - different values → use list_init
 inputs:
   - length
   - value
-outputs:
-  - list
+outputs: list
+instruction_template:
+  - Go to Lists
+  - Drag Repeat Value List
+  - Set length
+  - Set repeated value
+example_task: Create ['x','x','x'].
+```
 
-connections:
-  type: value
+## List Length
 
-image_ref: lists/repeat.png
-
----
-
-### list_length
+```yaml
 block_id: list_length
-display_name: List Length
+block_name: List Length
 category: lists
-
+type: value
+visual_signature: list length block; one list input
 function:
-  summary: Returns number of elements
+  summary: Returns number of elements in list.
+  use_when:
+    - check list size
+    - condition if size > 3
+    - loop over list
+  avoid_when:
+    - string length → use string_length
 inputs:
   - list
-outputs:
-  - number
+outputs: number
+instruction_template:
+  - Go to Lists
+  - Drag List Length
+  - Connect list
+example_task: If list length > 3, send SMS.
+```
 
-connections:
-  type: value
+## List Is Empty
 
-image_ref: lists/length.png
-
----
-
-### list_is_empty
+```yaml
 block_id: list_is_empty
-display_name: List Is Empty
+block_name: List Is Empty
 category: lists
-
+type: value/bool
+visual_signature: list empty check block; one list input
 function:
-  summary: Checks if list is empty
+  summary: Returns true if list has no elements.
+  use_when:
+    - validate list has values
+    - conditional if no collected data
+  avoid_when:
+    - empty string → use is_empty_string
 inputs:
   - list
-outputs:
-  - bool
+outputs: boolean
+instruction_template:
+  - Go to Lists
+  - Drag List Is Empty
+  - Connect list
+example_task: If events list is empty.
+```
 
-connections:
-  type: value
+## Find Element
 
-image_ref: lists/is_empty.png
-
----
-
-### list_find
+```yaml
 block_id: list_find
-display_name: Find Element
+block_name: Find Element
 category: lists
-
+type: value
+visual_signature: list find block; list and value inputs
 function:
-  summary: Finds index of element
+  summary: Finds index of first/last occurrence of a value in a list.
+  use_when:
+    - locate value
+    - check item position
+  avoid_when:
+    - substring in text → use find_substring
 inputs:
   - list
   - value
-outputs:
-  - number
+  - first/last mode if available
+outputs: number index or -1
+instruction_template:
+  - Go to Lists
+  - Drag Find Element
+  - Connect list and value
+example_task: Find first index of 'abc'.
+```
 
-connections:
-  type: value
+## Get/Remove Element
 
-image_ref: lists/find.png
-
----
-
-### list_get_remove
+```yaml
 block_id: list_get_remove
-display_name: Get/Remove Element
+block_name: Get/Remove Element
 category: lists
-
+type: value/statement
+visual_signature: list block with get/remove mode and index
 function:
-  summary: Gets or removes element at index
+  summary: Gets, removes, or gets-and-removes an element at an index.
+  use_when:
+    - read list item
+    - pop item
+    - remove selected value by index
+  avoid_when:
+    - set/insert value → use list_set_insert
 inputs:
   - list
   - index
-  - mode
-outputs:
-  - value
+  - mode: get/remove/get+remove
+outputs: value or none
+instruction_template:
+  - Go to Lists
+  - Drag Get/Remove Element
+  - Choose list
+  - Set index
+  - Choose mode
+example_task: Get item at index 0.
+```
 
-connections:
-  type: value
+## Set/Insert Element
 
-image_ref: lists/get_remove.png
-
----
-
-### list_set_insert
+```yaml
 block_id: list_set_insert
-display_name: Set/Insert Element
+block_name: Set/Insert Element
 category: lists
-
+type: statement
+visual_signature: list block with set/insert mode, index, value
 function:
-  summary: Sets or inserts value into list
+  summary: Sets or inserts value into list at index.
+  use_when:
+    - add collected value
+    - update list element
+  avoid_when:
+    - retrieve item → use list_get_remove
 inputs:
   - list
   - index
   - value
+  - mode: set/insert
 outputs: none
+instruction_template:
+  - Go to Lists
+  - Drag Set/Insert Element
+  - Choose list
+  - Set index
+  - Connect value
+  - Choose set/insert
+example_task: Insert count value into list.
+```
 
-connections:
-  type: statement
+## Sublist
 
-image_ref: lists/set_insert.png
-
----
-
-### list_sublist
+```yaml
 block_id: list_sublist
-display_name: Sublist
+block_name: Sublist
 category: lists
-
+type: value
+visual_signature: list block with start/end indexes
 function:
-  summary: Returns portion of list
+  summary: Returns a portion of a list.
+  use_when:
+    - slice list
+    - keep range of values
+  avoid_when:
+    - text substring → use get_substring
 inputs:
   - list
   - start
   - end
-outputs:
-  - list
+outputs: list
+instruction_template:
+  - Go to Lists
+  - Drag Sublist
+  - Connect list
+  - Set start/end
+example_task: Take first 5 values.
+```
 
-connections:
-  type: value
+## List/Text Conversion
 
-image_ref: lists/sublist.png
-
----
-
-### list_text_convert
+```yaml
 block_id: list_text_convert
-display_name: List/Text Conversion
+block_name: List/Text Conversion
 category: lists
-
+type: value
+visual_signature: list/text conversion block; delimiter and mode selector
 function:
-  summary: Converts between list and text
+  summary: Converts text to list or list to text using delimiter.
+  use_when:
+    - CSV parsing
+    - send list as SMS text
+    - split comma-separated text
+  avoid_when:
+    - translate text → use translate_text
 inputs:
-  - value
+  - value: list or text
   - delimiter
-  - mode
-outputs:
-  - list_or_text
+  - mode: text_to_list/list_to_text
+outputs: list or text
+instruction_template:
+  - Go to Lists
+  - Drag List/Text Conversion
+  - Choose mode
+  - Connect value
+  - Set delimiter
+example_task: Convert event list to comma-separated text.
+```
 
-connections:
-  type: value
+## Sort List
 
-image_ref: lists/convert.png
-
----
-
-### list_sort
+```yaml
 block_id: list_sort
-display_name: Sort List
+block_name: Sort List
 category: lists
-
+type: value
+visual_signature: list sort block; mode/order selector
 function:
-  summary: Sorts list
+  summary: Sorts list alphabetically or numerically.
+  use_when:
+    - order collected values
+    - prepare sorted output
+  avoid_when:
+    - find min/max only → use list_statistics
 inputs:
   - list
-  - mode
-outputs:
-  - list
+  - mode/order
+outputs: sorted list
+instruction_template:
+  - Go to Lists
+  - Drag Sort List
+  - Connect list
+  - Choose sort mode
+example_task: Sort values ascending.
+```
 
-connections:
-  type: value
-
-image_ref: lists/sort.png
-
-
-
-
-
-# =========================
 # Robot
-# =========================
 
-### move_steering
+Use for robot movement, motors, servos, sensors, PID, name configuration.
+
+## Move Steering
+
+```yaml
 block_id: move_steering
-display_name: Move Steering
+block_name: Move Steering
 category: robot
-
+type: statement
+visual_signature: orange robot movement block; steering/power/time/degrees/brake/complete inputs
 function:
-  summary: Moves robot with steering + power control
+  summary: Moves robot with steering and power control.
+  use_when:
+    - drive straight or turn by steering
+    - robot motion over time/degrees
+  avoid_when:
+    - independent wheel control → use move_tank
 inputs:
-  - steering: number [-100,100]
-  - power: number
-  - time: number
-  - degrees: number
-  - brake: bool
-  - complete: bool
+  - steering: -100 to 100
+  - power
+  - time
+  - degrees/revolutions
+  - brake
+  - complete
 outputs: none
+instruction_template:
+  - Go to Robot
+  - Drag Move Steering
+  - Set steering
+  - Set power
+  - Set time or degrees
+  - Set brake and complete flags
+example_task: Move straight with steering 0.
+```
 
-connections:
-  type: statement
+## Move Direction
 
-constraints:
-  - steering range [-100,100]
-
-visual_signature:
-  contains_text: [steering]
-
-image_ref: robot/move_steering.png
-
----
-
-### move_direction
+```yaml
 block_id: move_direction
-display_name: Move Direction
+block_name: Move Direction
 category: robot
-
+type: statement
+visual_signature: orange robot direction block; clockwise/counterclockwise and angle
 function:
-  summary: Moves robot with directional turning control
+  summary: Moves robot with directional turning control.
+  use_when:
+    - precise turn
+    - clockwise/counterclockwise movement
+  avoid_when:
+    - continuous steering curve → use move_steering
 inputs:
-  - direction: enum [clockwise, counterclockwise]
-  - power: number
-  - angle: number
-  - complete: bool
+  - direction: clockwise/counterclockwise
+  - power
+  - angle
+  - complete
 outputs: none
+instruction_template:
+  - Go to Robot
+  - Drag Move Direction
+  - Choose direction
+  - Set power and angle
+example_task: Turn clockwise 90 degrees.
+```
 
-connections:
-  type: statement
+## Move Tank
 
-image_ref: robot/move_direction.png
-
----
-
-### move_tank
+```yaml
 block_id: move_tank
-display_name: Move Tank
+block_name: Move Tank
 category: robot
-
+type: statement
+visual_signature: orange tank movement block; left/right power inputs
 function:
-  summary: Controls left/right motors independently
+  summary: Controls left/right motors independently.
+  use_when:
+    - tank steering
+    - different power per wheel
+    - manual wheel control
+  avoid_when:
+    - simple steering value → use move_steering
 inputs:
   - left_power
   - right_power
@@ -2824,182 +3167,251 @@ inputs:
   - brake
   - complete
 outputs: none
+instruction_template:
+  - Go to Robot
+  - Drag Move Tank
+  - Set left/right power
+  - Set duration/degrees and flags
+example_task: Left power 50, right power 30.
+```
 
-connections:
-  type: statement
+## Large Motor
 
-image_ref: robot/move_tank.png
-
----
-
-### motor_large
+```yaml
 block_id: motor_large
-display_name: Large Motor
+block_name: Large Motor
 category: robot
-
+type: statement
+visual_signature: orange single motor block; power/time/degrees/brake/complete
 function:
-  summary: Controls single motor
+  summary: Controls one large motor.
+  use_when:
+    - move one motor
+    - run motor B/C independently
+  avoid_when:
+    - two-motor movement → use move_tank
 inputs:
+  - motor/port if available
   - power
   - time
   - degrees
   - brake
   - complete
 outputs: none
+instruction_template:
+  - Go to Robot
+  - Drag Large Motor
+  - Choose motor/port
+  - Set power/time/degrees
+example_task: Run motor B for 2 seconds.
+```
 
-connections:
-  type: statement
+## Unregulated Motor
 
-image_ref: robot/motor_large.png
-
----
-
-### motor_unregulated
+```yaml
 block_id: motor_unregulated
-display_name: Unregulated Motor
+block_name: Unregulated Motor
 category: robot
-
+type: statement
+visual_signature: orange single motor block; unregulated/open-loop power
 function:
-  summary: Controls motor without speed regulation
+  summary: Controls motor without speed regulation.
+  use_when:
+    - torque/open-loop experiments
+    - raw motor power
+  avoid_when:
+    - regulated movement → use motor_large
 inputs:
+  - motor/port
   - power
   - time
   - degrees
   - brake
   - complete
 outputs: none
+instruction_template:
+  - Go to Robot
+  - Drag Unregulated Motor
+  - Choose motor
+  - Set power and duration
+example_task: Run unregulated motor at 30 power.
+```
 
-connections:
-  type: statement
+## Reset Robot
 
-image_ref: robot/motor_unregulated.png
-
----
-
-### robot_reset
+```yaml
 block_id: robot_reset
-display_name: Reset Robot
+block_name: Reset Robot
 category: robot
-
+type: statement
+visual_signature: orange reset robot block
 function:
-  summary: Resets robot sensors
-inputs: []
+  summary: Resets robot sensors/state.
+  use_when:
+    - clear encoders/sensors
+    - start measurement fresh
+  avoid_when:
+    - reset phone timer → use reset_timer
+inputs:
+  - none
 outputs: none
+instruction_template:
+  - Go to Robot
+  - Drag Reset Robot
+  - Place before robot measurement
+example_task: Reset robot before movement.
+```
 
-connections:
-  type: statement
+## Read Robot Sensor
 
-image_ref: robot/reset.png
-
----
-
-### robot_sensor_read
+```yaml
 block_id: robot_sensor_read
-display_name: Read Robot Sensor
+block_name: Read Robot Sensor
 category: robot
-
+type: value
+visual_signature: orange robot sensor read block; sensor type selector
 function:
-  summary: Returns value from robot sensor
+  summary: Returns value from robot sensor.
+  use_when:
+    - read encoder/robot-side sensor
+    - condition based on robot hardware
+  avoid_when:
+    - phone sensor → use Physical Sensors
 inputs:
   - sensor_type
-outputs:
-  - value
+outputs: value
+instruction_template:
+  - Go to Robot
+  - Drag Read Robot Sensor into value socket
+  - Choose sensor type
+example_task: Read motor encoder value.
+```
 
-connections:
-  type: value
+## Servo 180
 
-image_ref: robot/sensor_read.png
-
----
-
-### servo_180
+```yaml
 block_id: servo_180
-display_name: Servo 180
+block_name: Servo 180
 category: robot
-
+type: statement
+visual_signature: orange servo block; S1-S4 port and angle 0-180
 function:
-  summary: Sets servo angle (0–180)
+  summary: Sets servo angle from 0 to 180 degrees.
+  use_when:
+    - position servo to specific angle
+    - robot mechanism control
+  avoid_when:
+    - continuous rotation servo → use servo_360
 inputs:
-  - port: enum [S1,S2,S3,S4]
-  - angle: [0,180]
+  - port: S1/S2/S3/S4
+  - angle: 0-180
 outputs: none
+instruction_template:
+  - Go to Robot
+  - Drag Servo 180
+  - Choose port
+  - Set angle
+example_task: Set servo S1 to 90.
+```
 
-connections:
-  type: statement
+## Servo 360
 
-constraints:
-  - angle 0–180
-
-image_ref: robot/servo180.png
-
----
-
-### servo_360
+```yaml
 block_id: servo_360
-display_name: Servo 360
+block_name: Servo 360
 category: robot
-
+type: statement
+visual_signature: orange continuous servo block; port, power, on/off
 function:
-  summary: Controls continuous servo
+  summary: Controls continuous rotation servo power.
+  use_when:
+    - spin servo continuously
+    - open-loop servo movement
+  avoid_when:
+    - fixed angle servo → use servo_180
 inputs:
   - port
-  - power [-100,100]
+  - power: -100 to 100
   - on_off
 outputs: none
+instruction_template:
+  - Go to Robot
+  - Drag Servo 360
+  - Choose port
+  - Set power
+  - Set on/off
+example_task: Spin S2 at 50 power.
+```
 
-connections:
-  type: statement
+## PID Controller
 
-image_ref: robot/servo360.png
-
----
-
-### pid_controller
+```yaml
 block_id: pid_controller
-display_name: PID Controller
+block_name: PID Controller
 category: robot
-
+type: statement
+visual_signature: orange PID block; kp/ki/kd/boost inputs
 function:
-  summary: Sets PID parameters for motors
+  summary: Sets PID parameters for motor velocity control.
+  use_when:
+    - tune robot motor control
+    - advanced motion accuracy
+  avoid_when:
+    - move robot directly → use movement blocks
 inputs:
   - kp
   - ki
   - kd
   - boost
 outputs: none
+instruction_template:
+  - Go to Robot
+  - Drag PID Controller
+  - Set kp, ki, kd, boost before movement
+example_task: Set PID before moving straight.
+```
 
-connections:
-  type: statement
+## Set Robot Name
 
-image_ref: robot/pid.png
-
----
-
-### set_robot_name
+```yaml
 block_id: set_robot_name
-display_name: Set Robot Name
+block_name: Set Robot Name
 category: robot
-
+type: statement
+visual_signature: orange robot identity block; name input
 function:
-  summary: Assigns robot identifier
+  summary: Assigns/selects robot identifier/name.
+  use_when:
+    - connect to specific robot
+    - configure robot target
+  avoid_when:
+    - phone name → use Flow Control phone name if available
 inputs:
   - name: string
 outputs: none
+instruction_template:
+  - Go to Robot
+  - Drag Set Robot Name
+  - Enter robot name
+example_task: Set robot name to AI_Robot_1.
+```
 
-connections:
-  type: statement
+## Uniform Acceleration Motion
 
-image_ref: robot/name.png
-
----
-
-### motion_accelerated
+```yaml
 block_id: motion_accelerated
-display_name: Uniform Acceleration Motion
+block_name: Uniform Acceleration Motion
 category: robot
-
+type: statement
+visual_signature: orange acceleration motion block; steering/a/time/v0/brake/complete
 function:
-  summary: Moves robot with constant acceleration
+  summary: Moves robot with constant acceleration motion.
+  use_when:
+    - accelerated motion experiment
+    - physics kinematics
+    - non-constant speed movement
+  avoid_when:
+    - constant velocity → use move_steering
 inputs:
   - steering
   - acceleration
@@ -3008,9 +3420,57 @@ inputs:
   - brake
   - complete
 outputs: none
+instruction_template:
+  - Go to Robot
+  - Drag Uniform Acceleration Motion
+  - Set steering, acceleration, time, v0, flags
+example_task: Move with acceleration 10 for 5 sec.
+```
 
-connections:
-  type: statement
+# My Blocks / Macro Actions / Custom Blocks
 
-image_ref: robot/acceleration.png
+Use this section when the user wants to define a reusable block or routine.
 
+```yaml
+block_id: custom_block_definition
+block_name: My Block / User Routine
+category: my_blocks
+type: custom container or callable routine
+visual_signature: user-created block with custom name and optional parameters
+function:
+  summary: Groups several commands under one reusable name.
+  use_when:
+    - user says define a new block
+    - user wants reusable routine
+    - same sequence will be called multiple times
+  avoid_when:
+    - one-off simple program can stay inside on start
+inputs:
+  - custom parameters chosen by user
+outputs: optional, depending on custom block design
+instruction_template:
+  - Go to My Blocks / Custom Blocks
+  - Choose Make a Block / Create Routine
+  - Name the block clearly
+  - Add parameters only if values should change between calls
+  - Build the internal command sequence inside the custom block definition
+  - Call the custom block from on start or another flow
+example_task: Define a block named UploadTestCSV that initializes storage, sets filename, and uploads CSV.
+```
+
+# LLM Validation Checklist
+
+Before finalizing instructions, verify:
+
+- Did every program start with `Start Program / on start` unless defining only a custom block?
+- Are statement blocks placed in statement chains or containers?
+- Are value blocks plugged into value sockets?
+- Are loops used for repeated plotting/sampling?
+- Are graph reset blocks placed before plotting loops?
+- For trig plots, is `trig_function` fed degrees?
+- If x-axis needs radians, is `math_expression x*3.1416/180` used for graph X?
+- Are string comparisons done with `compare_strings`, not numeric compare?
+- Are numeric comparisons done with `number_compare`, not string compare?
+- Is MSB taken from `decimal_to_binary` bit3?
+- Are storage operations preceded by `Initialize Storage`?
+- Are Firebase DB operations preceded by `Initialize DB`?

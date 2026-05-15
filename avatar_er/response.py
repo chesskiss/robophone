@@ -24,8 +24,6 @@ def format_spoken_response(
 def _apply_tone(text: str, tone: Tone) -> str:
     if tone == "beginner" and not text.lower().startswith("no problem"):
         return f"No problem. {text}"
-    if tone == "encouraging" and not text.lower().startswith("you're"):
-        return f"You're doing fine. {text}"
     return text
 
 

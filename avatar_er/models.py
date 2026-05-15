@@ -5,6 +5,9 @@ from typing import Any, Literal
 
 ResponsivenessMode = Literal["normal", "low", "silent"]
 Tone = Literal["neutral", "encouraging", "technical", "beginner"]
+ConversationRole = Literal["teacher", "child", "system"]
+ConversationSource = Literal["emotion_prompt", "typed_input", "arg_input", "stt"]
+ConversationRoute = Literal["general_conversation", "manual_help"]
 IntentType = Literal[
     "settings_command",
     "help_request",
@@ -21,6 +24,7 @@ ActionType = Literal[
     "emotion_check_in",
     "encouragement",
     "emotion_observation",
+    "conversation_response",
 ]
 
 
@@ -106,6 +110,53 @@ class EmotionResponse:
 
 
 @dataclass(slots=True)
+class ConversationMessage:
+    role: ConversationRole
+    text: str
+    timestamp: float | None = None
+    source: ConversationSource = "typed_input"
+    route: ConversationRoute | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class ConversationRouteRequest:
+    user_text: str
+    current_task: str | None
+    tone: Tone
+    context: dict[str, Any] = field(default_factory=dict)
+    conversation_history: list[dict[str, Any]] = field(default_factory=list)
+    recent_emotions: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ConversationRouteResult:
+    route: ConversationRoute
+    backend: str = "unknown"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class ConversationResponseRequest:
+    user_text: str
+    current_task: str | None
+    tone: Tone
+    context: dict[str, Any] = field(default_factory=dict)
+    conversation_history: list[dict[str, Any]] = field(default_factory=list)
+    recent_emotions: list[dict[str, Any]] = field(default_factory=list)
+    latest_emotion: str | None = None
+
+
+@dataclass(slots=True)
+class ConversationResponse:
+    response_text: str
+    backend: str = "unknown"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
 class PerceptionInput:
     emotion_signal: EmotionSignal | None = None
     speech_signal: SpeechSignal | None = None
@@ -116,6 +167,7 @@ class PerceptionInput:
     gaze: str | None = None
     objects: list[str] = field(default_factory=list)
     current_task: str | None = None
+    input_source: ConversationSource = "typed_input"
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "PerceptionInput":
@@ -133,6 +185,7 @@ class PerceptionInput:
             gaze=_clean_optional_str(payload.get("gaze")),
             objects=_clean_str_list(payload.get("objects")),
             current_task=_clean_optional_str(payload.get("current_task")),
+            input_source=_clean_conversation_source(payload.get("input_source")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -150,7 +203,14 @@ class AvatarState:
     recent_emotion_events: list[dict[str, Any]] = field(default_factory=list)
     recent_speech_texts: list[str] = field(default_factory=list)
     recent_user_commands: list[str] = field(default_factory=list)
+    conversation_history: list[dict[str, Any]] = field(default_factory=list)
+    conversation_active: bool = False
+    last_teacher_prompt: str | None = None
+    last_route: ConversationRoute | None = None
     last_answered_question: str | None = None
+    recent_answered_topics: list[str] = field(default_factory=list)
+    last_proactive_emotion: str | None = None
+    last_proactive_emotion_timestamp: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -257,3 +317,10 @@ def _coerce_speech_signal(payload: dict[str, Any]) -> SpeechSignal | None:
         timestamp=_clean_optional_float(payload.get("speech_timestamp")),
         source=_clean_optional_str(payload.get("speech_source")) or "legacy_payload",
     )
+
+
+def _clean_conversation_source(value: Any) -> ConversationSource:
+    normalized = _clean_optional_str(value)
+    if normalized in {"emotion_prompt", "typed_input", "arg_input", "stt"}:
+        return normalized
+    return "typed_input"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import datetime
+from pathlib import Path
 
 try:
     from robophone.emotion_rt import EmotionCameraProvider, EmotionRTConfig
@@ -12,7 +13,10 @@ except ImportError:  # pragma: no cover - support running from inside robophone/
 from .adapters import GeminiEmotionResponseProvider
 from .coordinator import AvatarLiveCoordinator
 from .decision import AvatarDecisionEngine
-from .state import AvatarSessionStore
+from .state import AvatarSessionStore, JsonAvatarSessionStore
+
+
+DEFAULT_SESSION_PATH = Path(__file__).resolve().parent / "state" / "live_session.json"
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -28,6 +32,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-id", default="mo-thecreator/vit-Facial-Expression-Recognition")
     parser.add_argument("--model-path", default="emotion_rt/models/Pretrained_EfficientFace.tar")
     parser.add_argument("--current-task", default="live RoboPhone session")
+    parser.add_argument("--session-path", default=str(DEFAULT_SESSION_PATH))
     return parser
 
 
@@ -44,7 +49,7 @@ def main() -> int:
     )
     coordinator = AvatarLiveCoordinator(
         engine=AvatarDecisionEngine(
-            store=AvatarSessionStore(),
+            store=_build_store(args.session_path),
             emotion_response_provider=GeminiEmotionResponseProvider(),
         ),
         emotion_provider=provider,
@@ -57,17 +62,27 @@ def main() -> int:
 
 
 def _print_terminal_event(result: dict) -> None:
-    emotion = result.get("payload", {}).get("emotion")
+    payload = result.get("payload", {})
+    emotion = payload.get("emotion")
+    backend_error = payload.get("backend_error")
     if emotion is None:
         return
     timestamp = datetime.now().strftime("%H:%M:%S")
     reason = result.get("reason")
     lines = [f"[{timestamp}] emotion={emotion}"]
+    if backend_error:
+        lines.append(f"backend_error={backend_error}")
     if result.get("should_speak") and result.get("response_text"):
         lines.append(f"teacher: {result['response_text']}")
     else:
         lines.append(f"teacher: ... ({reason})")
     print("\n".join(lines))
+
+
+def _build_store(session_path: str | None) -> AvatarSessionStore:
+    if not session_path:
+        return AvatarSessionStore()
+    return JsonAvatarSessionStore(session_path=session_path)
 
 
 if __name__ == "__main__":

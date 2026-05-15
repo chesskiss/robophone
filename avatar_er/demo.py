@@ -3,7 +3,14 @@ from __future__ import annotations
 import json
 
 from .decision import AvatarDecisionEngine
-from .models import ManualQaRequest, ManualQaResponse
+from .models import (
+    ConversationResponse,
+    ConversationResponseRequest,
+    ConversationRouteRequest,
+    ConversationRouteResult,
+    ManualQaRequest,
+    ManualQaResponse,
+)
 from .state import AvatarSessionStore
 
 
@@ -17,10 +24,28 @@ class DemoManualQaProvider:
         )
 
 
+class DemoConversationRouteProvider:
+    def classify(self, request: ConversationRouteRequest) -> ConversationRouteResult:
+        text = request.user_text.lower()
+        if any(token in text for token in ["graph", "lcd", "block", "program", "sin", "cos"]):
+            return ConversationRouteResult(route="manual_help", backend="demo")
+        return ConversationRouteResult(route="general_conversation", backend="demo")
+
+
+class DemoConversationResponseProvider:
+    def answer(self, request: ConversationResponseRequest) -> ConversationResponse:
+        return ConversationResponse(
+            response_text=f"I hear you. Tell me the next part you want to work on: {request.user_text}",
+            backend="demo",
+        )
+
+
 def main() -> int:
     engine = AvatarDecisionEngine(
         store=AvatarSessionStore(),
         manual_qa_provider=DemoManualQaProvider(),
+        conversation_route_provider=DemoConversationRouteProvider(),
+        conversation_response_provider=DemoConversationResponseProvider(),
     )
     samples = [
         {
@@ -52,12 +77,22 @@ def main() -> int:
         },
         {
             "emotion_signal": {
-                "emotion": "neutral",
+                "emotion": "sad",
                 "confidence": 0.88,
                 "source": "demo",
                 "source_face_id": "student_1",
                 "is_stable": True,
             }
+        },
+        {
+            "speech_signal": {"text": "I don't get how to graph sin", "source": "demo"},
+            "input_source": "arg_input",
+            "current_task": "building RoboPhone Blockly graph",
+        },
+        {
+            "speech_signal": {"text": "I'm just upset", "source": "demo"},
+            "input_source": "typed_input",
+            "current_task": "building RoboPhone Blockly graph",
         },
     ]
 

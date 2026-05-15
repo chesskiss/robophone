@@ -3,6 +3,10 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from .models import (
+    ConversationResponse,
+    ConversationResponseRequest,
+    ConversationRouteRequest,
+    ConversationRouteResult,
     EmotionResponse,
     EmotionResponseRequest,
     EmotionSignal,
@@ -32,6 +36,14 @@ class ManualQaProvider(Protocol):
 
 class EmotionResponseProvider(Protocol):
     def answer(self, request: EmotionResponseRequest) -> EmotionResponse: ...
+
+
+class ConversationRouteProvider(Protocol):
+    def classify(self, request: ConversationRouteRequest) -> ConversationRouteResult: ...
+
+
+class ConversationResponseProvider(Protocol):
+    def answer(self, request: ConversationResponseRequest) -> ConversationResponse: ...
 
 
 class MotionProvider(Protocol):

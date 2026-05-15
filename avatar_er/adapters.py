@@ -7,13 +7,23 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .models import (
+    ConversationResponse,
+    ConversationResponseRequest,
+    ConversationRouteRequest,
+    ConversationRouteResult,
     EmotionResponse,
     EmotionResponseRequest,
     ManualQaRequest,
     ManualQaResponse,
     SpeechSignal,
 )
-from .providers import EmotionResponseProvider, ManualQaProvider, SpeechProvider
+from .providers import (
+    ConversationResponseProvider,
+    ConversationRouteProvider,
+    EmotionResponseProvider,
+    ManualQaProvider,
+    SpeechProvider,
+)
 
 
 @dataclass(slots=True)
@@ -23,7 +33,10 @@ class GroundEvalManualQaProvider(ManualQaProvider):
     system_prompt: str | None = None
 
     def answer(self, request: ManualQaRequest) -> ManualQaResponse:
-        from robophone.ground_eval.runtime import GroundEvalRuntimeRequest, GroundEvalRuntimeService
+        try:
+            from robophone.ground_eval.runtime import GroundEvalRuntimeRequest, GroundEvalRuntimeService
+        except ImportError:  # pragma: no cover - support running from inside robophone/
+            from ground_eval.runtime import GroundEvalRuntimeRequest, GroundEvalRuntimeService
 
         service = GroundEvalRuntimeService(
             document_path=self.document_path,
@@ -95,19 +108,7 @@ class GeminiEmotionResponseProvider(EmotionResponseProvider):
     api_key: str | None = None
 
     def answer(self, request: EmotionResponseRequest) -> EmotionResponse:
-        try:
-            from google import genai
-        except ImportError as exc:
-            raise RuntimeError(
-                "Gemini emotion responses require `google-genai`. "
-                "Install project dependencies with uv sync."
-            ) from exc
-
-        api_key = self.api_key or _get_project_env_value("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise RuntimeError("Missing GEMINI_API_KEY for Gemini emotion responses in robophone/.env or the shell.")
-
-        client = genai.Client(api_key=api_key)
+        client = _build_gemini_client(self.api_key)
         prompt = self._build_prompt(request)
         response = client.models.generate_content(
             model=self.model,
@@ -134,6 +135,88 @@ class GeminiEmotionResponseProvider(EmotionResponseProvider):
             f"Additional context: {request.context}.\n"
             "Return only the teacher response text."
         )
+
+
+@dataclass(slots=True)
+class GeminiConversationRouteProvider(ConversationRouteProvider):
+    model: str = "gemini-3-flash-preview"
+    api_key: str | None = None
+
+    def classify(self, request: ConversationRouteRequest) -> ConversationRouteResult:
+        client = _build_gemini_client(self.api_key)
+        response = client.models.generate_content(
+            model=self.model,
+            contents=self._build_prompt(request),
+        )
+        text = ((getattr(response, "text", "") or "").strip().lower())
+        route = "manual_help" if "manual_help" in text else "general_conversation"
+        return ConversationRouteResult(
+            route=route,
+            backend="gemini",
+            metadata={"model": self.model, "raw_text": text},
+        )
+
+    def _build_prompt(self, request: ConversationRouteRequest) -> str:
+        return (
+            "You are a classifier for a RoboPhone classroom teacher assistant. "
+            "Decide whether the child's latest message is asking for RoboPhone task help or is general conversation. "
+            "Return only one label: manual_help or general_conversation.\n"
+            f"Current task: {request.current_task or 'unspecified RoboPhone task'}.\n"
+            f"Latest child message: {request.user_text}\n"
+            f"Recent conversation history: {request.conversation_history}\n"
+            f"Recent emotion history: {request.recent_emotions}\n"
+            f"Additional context: {request.context}\n"
+        )
+
+
+@dataclass(slots=True)
+class GeminiConversationResponseProvider(ConversationResponseProvider):
+    model: str = "gemini-3-flash-preview"
+    api_key: str | None = None
+
+    def answer(self, request: ConversationResponseRequest) -> ConversationResponse:
+        client = _build_gemini_client(self.api_key)
+        response = client.models.generate_content(
+            model=self.model,
+            contents=self._build_prompt(request),
+        )
+        text = getattr(response, "text", "") or ""
+        return ConversationResponse(
+            response_text=text.strip(),
+            backend="gemini",
+            metadata={"model": self.model},
+        )
+
+    def _build_prompt(self, request: ConversationResponseRequest) -> str:
+        return (
+            "You are a RoboPhone classroom teacher assistant having a short conversation with a child. "
+            "Reply in 1-3 short sentences. Stay calm, supportive, and teacher-like. "
+            "Do not sound like a therapist. "
+            "If the child is emotional, acknowledge it briefly and guide them constructively. "
+            "If the child is asking a general question, answer simply without pretending to have manual-specific facts. "
+            f"Current task: {request.current_task or 'unspecified RoboPhone task'}.\n"
+            f"Latest detected emotion: {request.latest_emotion or 'unknown'}.\n"
+            f"Recent emotion history: {request.recent_emotions}.\n"
+            f"Recent conversation history: {request.conversation_history}.\n"
+            f"Additional context: {request.context}.\n"
+            f"Latest child message: {request.user_text}\n"
+            "Return only the teacher response text."
+        )
+
+
+def _build_gemini_client(api_key_override: str | None) -> object:
+    try:
+        from google import genai
+    except ImportError as exc:
+        raise RuntimeError(
+            "Gemini features require `google-genai`. "
+            "Install project dependencies with uv sync."
+        ) from exc
+
+    api_key = api_key_override or _get_project_env_value("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("Missing GEMINI_API_KEY for Gemini features in robophone/.env or the shell.")
+    return genai.Client(api_key=api_key)
 
 
 def _get_project_env_value(key: str) -> str | None:

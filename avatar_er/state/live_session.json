@@ -1,0 +1,123 @@
+{
+  "conversation_active": true,
+  "conversation_history": [
+    {
+      "role": "child",
+      "route": null,
+      "source": "typed_input",
+      "text": "How am I feeling now",
+      "timestamp": 1778879216.324786
+    },
+    {
+      "role": "teacher",
+      "route": "general_conversation",
+      "source": "typed_input",
+      "text": "You seem fairly neutral right now. If something feels off, tell me and I can help.",
+      "timestamp": 1778879216.327924
+    },
+    {
+      "role": "teacher",
+      "route": null,
+      "source": "emotion_prompt",
+      "text": "You seem more comfortable now. Keep going, and tell me if you want help with the next step.",
+      "timestamp": 1778879236.338121
+    },
+    {
+      "role": "child",
+      "route": null,
+      "source": "typed_input",
+      "text": "and now?",
+      "timestamp": 1778879236.98684
+    },
+    {
+      "role": "teacher",
+      "route": "general_conversation",
+      "source": "typed_input",
+      "text": "You look very happy now! It\u2019s great to see that positive energy while we work together.",
+      "timestamp": 1778879244.622784
+    },
+    {
+      "role": "teacher",
+      "route": null,
+      "source": "emotion_prompt",
+      "text": "You seem more comfortable now. Keep going, and tell me if you want help with the next step.",
+      "timestamp": 1778879264.710562
+    }
+  ],
+  "cooldown_seconds": 20,
+  "current_task": "live RoboPhone session",
+  "last_answered_question": null,
+  "last_proactive_emotion": "happy",
+  "last_proactive_emotion_timestamp": 1778879264.7091541,
+  "last_response_timestamp": 1778879264.709868,
+  "last_route": "general_conversation",
+  "last_teacher_prompt": "You seem more comfortable now. Keep going, and tell me if you want help with the next step.",
+  "recent_answered_topics": [],
+  "recent_emotion_events": [
+    {
+      "confidence": 0.798904538154602,
+      "emotion": "happy",
+      "is_stable": true,
+      "timestamp": 1778879264.70648
+    },
+    {
+      "confidence": 0.7070074081420898,
+      "emotion": "happy",
+      "is_stable": true,
+      "timestamp": 1778879265.075066
+    },
+    {
+      "confidence": 0.5766801238059998,
+      "emotion": "happy",
+      "is_stable": true,
+      "timestamp": 1778879265.4441652
+    },
+    {
+      "confidence": 0.824923574924469,
+      "emotion": "happy",
+      "is_stable": true,
+      "timestamp": 1778879265.808266
+    },
+    {
+      "confidence": 0.8416914939880371,
+      "emotion": "happy",
+      "is_stable": true,
+      "timestamp": 1778879266.17529
+    },
+    {
+      "confidence": 0.6487263441085815,
+      "emotion": "happy",
+      "is_stable": true,
+      "timestamp": 1778879266.5312052
+    },
+    {
+      "confidence": 0.7485209703445435,
+      "emotion": "happy",
+      "is_stable": true,
+      "timestamp": 1778879266.915861
+    },
+    {
+      "confidence": 0.66250079870224,
+      "emotion": "happy",
+      "is_stable": true,
+      "timestamp": 1778879267.2591429
+    }
+  ],
+  "recent_emotions": [
+    "happy",
+    "happy",
+    "happy",
+    "happy",
+    "happy",
+    "happy",
+    "happy",
+    "happy"
+  ],
+  "recent_speech_texts": [
+    "How am I feeling now",
+    "and now?"
+  ],
+  "recent_user_commands": [],
+  "responsiveness_mode": "normal",
+  "tone": "encouraging"
+}
