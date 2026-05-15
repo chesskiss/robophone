@@ -23,7 +23,7 @@ Modules:
 - `api.py`: Public integration entry point.
 - `demo.py`: Pure ER simulation script.
 - `demo_live_emotion_er.py`: live Camo emotion input into ER.
-- `demo_live_chat.py`: chat-only ER loop for typed child replies without camera input.
+- `demo_live_chat.py`: input-only terminal for typed child replies without camera input.
 - `demo_live_emotion_stt.py`: live Camo emotion plus STT into ER.
 - `demo_live_full.py`: live Camo emotion plus STT plus grounded Q&A.
 
@@ -173,7 +173,7 @@ The conversation path now:
 
 Two-terminal shared-session workflow:
 
-Terminal 1, emotion only:
+Terminal 1, emotion/output terminal:
 
 ```bash
 ./.venv/bin/python -m avatar_er.demo_live_emotion_er \
@@ -183,7 +183,7 @@ Terminal 1, emotion only:
   --session-path avatar_er/state/live_session.json
 ```
 
-Terminal 2, chat only:
+Terminal 2, child input terminal:
 
 ```bash
 ./.venv/bin/python -m avatar_er.demo_live_chat \
@@ -199,7 +199,7 @@ Or seed the first typed child turn:
   --session-path avatar_er/state/live_session.json
 ```
 
-These are still separate processes, but they now share one local JSON-backed ER session file. The emotion terminal publishes stable emotion state into that session, and the chat terminal reads the same session before answering.
+These are still separate processes, but they now share one local JSON-backed ER session file. The child input terminal only queues child messages into shared state. The emotion terminal publishes stable emotion state, consumes queued child inputs, and prints all teacher responses in one place.
 
 ## Runtime Manual-Q&A Integration
 

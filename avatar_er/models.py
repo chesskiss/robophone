@@ -211,6 +211,13 @@ class AvatarState:
     recent_answered_topics: list[str] = field(default_factory=list)
     last_proactive_emotion: str | None = None
     last_proactive_emotion_timestamp: float | None = None
+    last_user_turn_timestamp: float | None = None
+    last_proactive_turn_timestamp: float | None = None
+    last_stable_emotion_timestamp: float | None = None
+    last_stable_emotion_value: str | None = None
+    last_stable_emotion_acknowledged: str | None = None
+    effective_cooldown_until: float | None = None
+    pending_child_inputs: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

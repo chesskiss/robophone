@@ -80,6 +80,38 @@ class AvatarSessionStore:
         self._state.last_proactive_emotion = emotion
         self._state.last_proactive_emotion_timestamp = timestamp
 
+    def record_turn_timing(
+        self,
+        *,
+        user_turn_timestamp: float | None = None,
+        proactive_turn_timestamp: float | None = None,
+        stable_emotion_timestamp: float | None = None,
+        stable_emotion_value: str | None = None,
+        stable_emotion_acknowledged: str | None = None,
+        effective_cooldown_until: float | None = None,
+    ) -> None:
+        if user_turn_timestamp is not None:
+            self._state.last_user_turn_timestamp = user_turn_timestamp
+        if proactive_turn_timestamp is not None:
+            self._state.last_proactive_turn_timestamp = proactive_turn_timestamp
+        if stable_emotion_timestamp is not None:
+            self._state.last_stable_emotion_timestamp = stable_emotion_timestamp
+        if stable_emotion_value is not None:
+            self._state.last_stable_emotion_value = stable_emotion_value
+        if stable_emotion_acknowledged is not None:
+            self._state.last_stable_emotion_acknowledged = stable_emotion_acknowledged
+        if effective_cooldown_until is not None:
+            self._state.effective_cooldown_until = effective_cooldown_until
+
+    def enqueue_child_input(self, message: ConversationMessage) -> None:
+        self._state.pending_child_inputs.append(message.to_dict())
+        self._trim_history()
+
+    def pop_pending_child_inputs(self) -> list[dict]:
+        items = list(self._state.pending_child_inputs)
+        self._state.pending_child_inputs = []
+        return items
+
     def _trim_history(self) -> None:
         self._state.recent_emotions = self._state.recent_emotions[-self._history_limit :]
         self._state.recent_emotion_events = self._state.recent_emotion_events[-self._history_limit :]
@@ -87,6 +119,7 @@ class AvatarSessionStore:
         self._state.recent_user_commands = self._state.recent_user_commands[-self._history_limit :]
         self._state.conversation_history = self._state.conversation_history[-self._history_limit :]
         self._state.recent_answered_topics = self._state.recent_answered_topics[-self._history_limit :]
+        self._state.pending_child_inputs = self._state.pending_child_inputs[-self._history_limit :]
 
 
 class JsonAvatarSessionStore(AvatarSessionStore):
@@ -184,6 +217,18 @@ class JsonAvatarSessionStore(AvatarSessionStore):
         self._state = replace(mutated)
         self._trim_history()
         self._write_state(self._state)
+
+    def enqueue_child_input(self, message: ConversationMessage) -> None:
+        self._update_state(lambda state: self._append_list(state, "pending_child_inputs", message.to_dict()))
+
+    def pop_pending_child_inputs(self) -> list[dict]:
+        current = self._load_state(AvatarState())
+        items = list(current.pending_child_inputs)
+        current.pending_child_inputs = []
+        self._state = replace(current)
+        self._trim_history()
+        self._write_state(self._state)
+        return items
 
     def _load_state(self, default_state: AvatarState) -> AvatarState:
         if not self._session_path.exists():

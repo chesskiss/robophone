@@ -4,13 +4,7 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
-from .adapters import (
-    GeminiConversationResponseProvider,
-    GeminiConversationRouteProvider,
-    GeminiEmotionResponseProvider,
-    GroundEvalManualQaProvider,
-)
-from .decision import AvatarDecisionEngine
+from .models import ConversationMessage
 from .state import AvatarSessionStore, JsonAvatarSessionStore
 
 
@@ -18,7 +12,7 @@ DEFAULT_SESSION_PATH = Path(__file__).resolve().parent / "state" / "live_session
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Chat-only ER debug loop without camera input.")
+    parser = argparse.ArgumentParser(description="Input-only ER terminal for child replies.")
     parser.add_argument("--current-task", default="live RoboPhone session")
     parser.add_argument("--initial-child-message", default=None)
     parser.add_argument("--interactive-replies", action="store_true")
@@ -29,29 +23,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = build_arg_parser().parse_args()
     store = _build_store(args.session_path)
-    engine = AvatarDecisionEngine(
-        store=store,
-        manual_qa_provider=GroundEvalManualQaProvider(),
-        emotion_response_provider=GeminiEmotionResponseProvider(),
-        conversation_route_provider=GeminiConversationRouteProvider(),
-        conversation_response_provider=GeminiConversationResponseProvider(),
-    )
 
     if args.initial_child_message:
-        _print_terminal_event(
-            engine.process(
-                {
-                    "speech_text": args.initial_child_message,
-                    "input_source": "arg_input",
-                    "current_task": args.current_task,
-                }
-            )
+        _enqueue_child_input(
+            store,
+            text=args.initial_child_message,
+            source="arg_input",
         )
+        _print_enqueue_event(args.initial_child_message, "arg_input")
 
     if not args.interactive_replies:
         return 0
 
-    print("interactive chat mode: type child replies below. Type `quit` or `exit` to stop.")
+    print("input mode: type child replies below. Type `quit` or `exit` to stop.")
     try:
         while True:
             reply = input("child> ").strip()
@@ -59,15 +43,8 @@ def main() -> int:
                 return 0
             if not reply:
                 continue
-            _print_terminal_event(
-                engine.process(
-                    {
-                        "speech_text": reply,
-                        "input_source": "typed_input",
-                        "current_task": args.current_task,
-                    }
-                )
-            )
+            _enqueue_child_input(store, text=reply, source="typed_input")
+            _print_enqueue_event(reply, "typed_input")
     except KeyboardInterrupt:
         return 0
 
@@ -78,21 +55,19 @@ def _build_store(session_path: str | None) -> AvatarSessionStore:
     return JsonAvatarSessionStore(session_path=session_path)
 
 
-def _print_terminal_event(result: dict) -> None:
+def _enqueue_child_input(store: AvatarSessionStore, text: str, source: str) -> None:
+    store.enqueue_child_input(
+        ConversationMessage(
+            role="child",
+            text=text,
+            source=source,  # type: ignore[arg-type]
+        )
+    )
+
+
+def _print_enqueue_event(text: str, source: str) -> None:
     timestamp = datetime.now().strftime("%H:%M:%S")
-    payload = result.get("payload", {})
-    route = payload.get("route")
-    backend = payload.get("used_backend")
-    backend_error = payload.get("backend_error")
-    print(f"[{timestamp}] action={result.get('action_type')}")
-    if route:
-        print(f"route={route} backend={backend}")
-    if backend_error:
-        print(f"backend_error={backend_error}")
-    if result.get("should_speak") and result.get("response_text"):
-        print(f"teacher: {result['response_text']}")
-    else:
-        print(f"teacher: ... ({result.get('reason')})")
+    print(f"[{timestamp}] queued child input from {source}: {text}")
 
 
 if __name__ == "__main__":

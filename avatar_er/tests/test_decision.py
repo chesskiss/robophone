@@ -135,6 +135,7 @@ class DecisionEngineTests(unittest.TestCase):
         history = result["updated_state"]["conversation_history"]
         self.assertEqual(history[-1]["role"], "teacher")
         self.assertEqual(history[-1]["source"], "emotion_prompt")
+        self.assertIn("llm teacher response for sad", history[-1]["text"].lower())
 
     def test_child_typed_reply_is_stored_in_history(self) -> None:
         self.engine.process(
@@ -179,8 +180,8 @@ class DecisionEngineTests(unittest.TestCase):
         result = self.engine.process({"speech_text": "I'm just upset", "current_task": "graphing"})
         self.assertTrue(result["should_speak"])
         self.assertEqual(result["payload"]["route"], "general_conversation")
-        self.assertEqual(result["payload"]["used_backend"], "local_heuristic")
-        self.assertEqual(len(self.conversation_provider.calls), 0)
+        self.assertEqual(result["payload"]["used_backend"], "gemini")
+        self.assertEqual(len(self.conversation_provider.calls), 1)
         self.assertEqual(len(self.manual.calls), 0)
 
     def test_manual_help_route_calls_manual_provider(self) -> None:
@@ -224,6 +225,7 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertTrue(result["payload"]["conversation_active"])
         self.assertEqual(result["payload"]["route"], "general_conversation")
         self.assertEqual(result["payload"]["used_backend"], "gemini")
+        self.assertEqual(result["payload"]["last_turn_type"], "user_driven_chat")
 
     def test_feelings_question_uses_local_history_based_answer(self) -> None:
         self.engine.process(
@@ -238,8 +240,8 @@ class DecisionEngineTests(unittest.TestCase):
         )
         result = self.engine.process({"speech_text": "how am I feeling now?"})
         self.assertTrue(result["should_speak"])
-        self.assertEqual(result["payload"]["used_backend"], "local_heuristic")
-        self.assertIn("seem", result["response_text"].lower())
+        self.assertEqual(result["payload"]["used_backend"], "gemini")
+        self.assertIn("teacher reply to: how am i feeling now?", result["response_text"].lower())
 
     def test_chat_process_reads_shared_emotion_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -264,8 +266,8 @@ class DecisionEngineTests(unittest.TestCase):
             )
             result = chat_engine.process({"speech_text": "how am I feeling now?"})
             self.assertTrue(result["should_speak"])
-            self.assertIn("sad", result["response_text"].lower())
-            self.assertEqual(result["payload"]["used_backend"], "local_heuristic")
+            self.assertIn("teacher reply to: how am i feeling now?", result["response_text"].lower())
+            self.assertEqual(result["payload"]["used_backend"], "gemini")
 
     def test_repeated_negative_emotion_does_not_nag(self) -> None:
         first = self.engine.process(
@@ -300,6 +302,99 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertIn("quick recap", result["response_text"].lower())
         self.assertEqual(result["payload"]["used_backend"], "local_memory")
 
+    def test_user_turn_increases_proactive_cooldown(self) -> None:
+        self.engine.process({"speech_text": "How do I graph sin?", "current_task": "graphing"})
+        self.clock.advance(25)
+        result = self.engine.process(
+            {
+                "emotion_signal": {
+                    "emotion": "happy",
+                    "confidence": 0.95,
+                    "source": "test",
+                    "is_stable": True,
+                }
+            }
+        )
+        self.assertFalse(result["should_speak"])
+        self.assertEqual(result["reason"], "Cooldown active")
+        self.assertEqual(result["payload"]["cooldown_reason"], "recent_user_turn")
+
+    def test_stable_emotion_change_shortens_cooldown_after_user_turn(self) -> None:
+        self.engine.process({"speech_text": "How do I graph sin?", "current_task": "graphing"})
+        self.clock.advance(1)
+        self.engine.process(
+            {
+                "emotion_signal": {
+                    "emotion": "sad",
+                    "confidence": 0.95,
+                    "source": "test",
+                    "is_stable": True,
+                }
+            }
+        )
+        self.clock.advance(8)
+        result = self.engine.process(
+            {
+                "emotion_signal": {
+                    "emotion": "sad",
+                    "confidence": 0.95,
+                    "source": "test",
+                    "is_stable": True,
+                }
+            }
+        )
+        self.assertTrue(result["should_speak"])
+        self.assertTrue(result["payload"]["cooldown_shortened_by_emotion"])
+        self.assertEqual(result["payload"]["cooldown_reason"], "stable_emotion_change_after_user_turn")
+
+    def test_unstable_emotion_change_does_not_shorten_cooldown(self) -> None:
+        self.engine.process({"speech_text": "How do I graph sin?", "current_task": "graphing"})
+        self.clock.advance(1)
+        result = self.engine.process(
+            {
+                "emotion_signal": {
+                    "emotion": "sad",
+                    "confidence": 0.95,
+                    "source": "test",
+                    "is_stable": False,
+                }
+            }
+        )
+        self.assertFalse(result["should_speak"])
+        self.assertEqual(result["reason"], "Emotion not stable enough for a proactive response")
+
+    def test_proactive_follow_up_allowed_after_extended_cooldown(self) -> None:
+        self.engine.process({"speech_text": "How do I graph sin?", "current_task": "graphing"})
+        self.clock.advance(41)
+        result = self.engine.process(
+            {
+                "emotion_signal": {
+                    "emotion": "happy",
+                    "confidence": 0.95,
+                    "source": "test",
+                    "is_stable": True,
+                }
+            }
+        )
+        self.assertTrue(result["should_speak"])
+        self.assertEqual(result["payload"]["last_turn_type"], "proactive_emotion")
+
+    def test_proactive_confusion_after_answered_topic_offers_recap(self) -> None:
+        self.engine.process({"speech_text": "How do I graph sin?", "current_task": "graphing"})
+        self.clock.advance(41)
+        result = self.engine.process(
+            {
+                "emotion_signal": {
+                    "emotion": "confused",
+                    "confidence": 0.95,
+                    "source": "test",
+                    "is_stable": True,
+                }
+            }
+        )
+        self.assertTrue(result["should_speak"])
+        self.assertIn("llm teacher response for confused", result["response_text"].lower())
+
     def test_emotion_responder_receives_history(self) -> None:
         self.engine.process(
             {
@@ -324,10 +419,9 @@ class DecisionEngineTests(unittest.TestCase):
                 }
             }
         )
-        self.assertEqual(len(self.emotion_responder.calls), 0)
-        state = self.engine.store.get_state()
-        self.assertGreaterEqual(len(state.recent_emotion_events), 2)
-        self.assertEqual(state.last_proactive_emotion, "sad")
+        last_call = self.emotion_responder.calls[-1]
+        self.assertEqual(last_call["emotion"], "sad")
+        self.assertGreaterEqual(len(last_call["recent_emotions"]), 2)
 
     def test_silent_mode_blocks_non_resume_help_response(self) -> None:
         first = self.engine.process({"speech_text": "stop responding"})

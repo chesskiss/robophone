@@ -28,6 +28,10 @@ from .state import AvatarSessionStore
 
 
 class AvatarDecisionEngine:
+    USER_TURN_COOLDOWN_MULTIPLIER = 2.0
+    EMOTION_SHIFT_DWELL_SECONDS = 8.0
+    MIN_SHORTENED_COOLDOWN_SECONDS = 8.0
+
     def __init__(
         self,
         store: AvatarSessionStore | None = None,
@@ -55,6 +59,7 @@ class AvatarDecisionEngine:
         if perception.current_task:
             state.current_task = perception.current_task
         if perception.emotion_signal and perception.emotion_signal.emotion:
+            self._record_stable_emotion_change(perception.emotion_signal)
             self.store.record_emotion(perception.emotion_signal.emotion)
             self.store.record_emotion_signal(perception.emotion_signal)
         elif perception.emotion:
@@ -79,6 +84,7 @@ class AvatarDecisionEngine:
                 mark_response=True,
                 payload={"intent": intent.intent, "updated_settings": command_result.updated_settings},
                 allow_silent_mode_speech=True,
+                turn_type="settings_update",
             )
 
         if state.responsiveness_mode == "silent":
@@ -137,6 +143,7 @@ class AvatarDecisionEngine:
                 mark_response=True,
                 payload={"intent": intent.intent},
                 allow_silent_mode_speech=False,
+                turn_type="user_driven_chat",
             )
 
         if intent.intent == "unknown" and speech_text:
@@ -218,6 +225,7 @@ class AvatarDecisionEngine:
                 allow_silent_mode_speech=False,
                 teacher_source=perception.input_source,
                 teacher_route=route,
+                turn_type="manual_help",
             )
 
         answer, backend, response_error = self._generate_conversation_response(state, speech_text, perception)
@@ -237,6 +245,7 @@ class AvatarDecisionEngine:
             allow_silent_mode_speech=False,
             teacher_source=perception.input_source,
             teacher_route=route,
+            turn_type="user_driven_chat",
         )
 
     def _generate_manual_guidance(
@@ -298,7 +307,8 @@ class AvatarDecisionEngine:
                 allow_silent_mode_speech=False,
             )
 
-        if not self._cooldown_passed(state):
+        cooldown_ready, cooldown_reason, cooldown_shortened = self._cooldown_status(state, emotion)
+        if not cooldown_ready:
             return self._finalize(
                 state=state,
                 should_respond=False,
@@ -306,7 +316,12 @@ class AvatarDecisionEngine:
                 reason="Cooldown active",
                 response_text=None,
                 mark_response=False,
-                payload={"intent": intent_name, "emotion": emotion},
+                payload={
+                    "intent": intent_name,
+                    "emotion": emotion,
+                    "cooldown_reason": cooldown_reason,
+                    "cooldown_shortened_by_emotion": cooldown_shortened,
+                },
                 allow_silent_mode_speech=False,
             )
 
@@ -323,7 +338,8 @@ class AvatarDecisionEngine:
             )
 
         if emotion == "confused":
-            response_text = self._build_local_emotion_response(state, emotion)
+            fallback = self._build_local_emotion_response(state, emotion)
+            response_text = self._generate_emotion_response(state, emotion, perception, fallback)
             self.store.record_proactive_emotion(emotion, self.clock())
             state = self.store.get_state()
             return self._finalize(
@@ -333,12 +349,19 @@ class AvatarDecisionEngine:
                 reason="High-confidence confused expression",
                 response_text=response_text,
                 mark_response=True,
-                payload={"intent": intent_name, "emotion": emotion},
+                payload={
+                    "intent": intent_name,
+                    "emotion": emotion,
+                    "cooldown_reason": cooldown_reason,
+                    "cooldown_shortened_by_emotion": cooldown_shortened,
+                },
                 allow_silent_mode_speech=False,
+                turn_type="proactive_emotion",
             )
 
         if emotion in {"frustrated", "sad"}:
-            response_text = self._build_local_emotion_response(state, emotion)
+            fallback = self._build_local_emotion_response(state, emotion)
+            response_text = self._generate_emotion_response(state, emotion, perception, fallback)
             self.store.record_proactive_emotion(emotion, self.clock())
             state = self.store.get_state()
             return self._finalize(
@@ -348,12 +371,19 @@ class AvatarDecisionEngine:
                 reason="High-confidence frustrated or sad expression",
                 response_text=response_text,
                 mark_response=True,
-                payload={"intent": intent_name, "emotion": emotion},
+                payload={
+                    "intent": intent_name,
+                    "emotion": emotion,
+                    "cooldown_reason": cooldown_reason,
+                    "cooldown_shortened_by_emotion": cooldown_shortened,
+                },
                 allow_silent_mode_speech=False,
+                turn_type="proactive_emotion",
             )
 
         if emotion in {"engaged", "happy"}:
-            response_text = self._build_local_emotion_response(state, emotion)
+            fallback = self._build_local_emotion_response(state, emotion)
+            response_text = self._generate_emotion_response(state, emotion, perception, fallback)
             self.store.record_proactive_emotion(emotion, self.clock())
             state = self.store.get_state()
             return self._finalize(
@@ -363,12 +393,19 @@ class AvatarDecisionEngine:
                 reason="High-confidence positive expression",
                 response_text=response_text,
                 mark_response=True,
-                payload={"intent": intent_name, "emotion": emotion},
+                payload={
+                    "intent": intent_name,
+                    "emotion": emotion,
+                    "cooldown_reason": cooldown_reason,
+                    "cooldown_shortened_by_emotion": cooldown_shortened,
+                },
                 allow_silent_mode_speech=False,
+                turn_type="proactive_emotion",
             )
 
         if emotion in {"fear", "surprise"}:
-            response_text = self._build_local_emotion_response(state, emotion)
+            fallback = self._build_local_emotion_response(state, emotion)
+            response_text = self._generate_emotion_response(state, emotion, perception, fallback)
             self.store.record_proactive_emotion(emotion, self.clock())
             state = self.store.get_state()
             return self._finalize(
@@ -378,12 +415,19 @@ class AvatarDecisionEngine:
                 reason="High-confidence startled expression",
                 response_text=response_text,
                 mark_response=True,
-                payload={"intent": intent_name, "emotion": emotion},
+                payload={
+                    "intent": intent_name,
+                    "emotion": emotion,
+                    "cooldown_reason": cooldown_reason,
+                    "cooldown_shortened_by_emotion": cooldown_shortened,
+                },
                 allow_silent_mode_speech=False,
+                turn_type="proactive_emotion",
             )
 
         if emotion == "angry":
-            response_text = self._build_local_emotion_response(state, emotion)
+            fallback = self._build_local_emotion_response(state, emotion)
+            response_text = self._generate_emotion_response(state, emotion, perception, fallback)
             self.store.record_proactive_emotion(emotion, self.clock())
             state = self.store.get_state()
             return self._finalize(
@@ -393,12 +437,19 @@ class AvatarDecisionEngine:
                 reason="High-confidence angry expression",
                 response_text=response_text,
                 mark_response=True,
-                payload={"intent": intent_name, "emotion": emotion},
+                payload={
+                    "intent": intent_name,
+                    "emotion": emotion,
+                    "cooldown_reason": cooldown_reason,
+                    "cooldown_shortened_by_emotion": cooldown_shortened,
+                },
                 allow_silent_mode_speech=False,
+                turn_type="proactive_emotion",
             )
 
         if emotion == "disgust":
-            response_text = self._build_local_emotion_response(state, emotion)
+            fallback = self._build_local_emotion_response(state, emotion)
+            response_text = self._generate_emotion_response(state, emotion, perception, fallback)
             self.store.record_proactive_emotion(emotion, self.clock())
             state = self.store.get_state()
             return self._finalize(
@@ -408,12 +459,19 @@ class AvatarDecisionEngine:
                 reason="High-confidence discomfort expression",
                 response_text=response_text,
                 mark_response=True,
-                payload={"intent": intent_name, "emotion": emotion},
+                payload={
+                    "intent": intent_name,
+                    "emotion": emotion,
+                    "cooldown_reason": cooldown_reason,
+                    "cooldown_shortened_by_emotion": cooldown_shortened,
+                },
                 allow_silent_mode_speech=False,
+                turn_type="proactive_emotion",
             )
 
         if emotion == "neutral":
-            response_text = self._build_local_emotion_response(state, emotion)
+            fallback = self._build_local_emotion_response(state, emotion)
+            response_text = self._generate_emotion_response(state, emotion, perception, fallback)
             self.store.record_proactive_emotion(emotion, self.clock())
             state = self.store.get_state()
             return self._finalize(
@@ -423,8 +481,14 @@ class AvatarDecisionEngine:
                 reason="High-confidence neutral expression",
                 response_text=response_text,
                 mark_response=True,
-                payload={"intent": intent_name, "emotion": emotion},
+                payload={
+                    "intent": intent_name,
+                    "emotion": emotion,
+                    "cooldown_reason": cooldown_reason,
+                    "cooldown_shortened_by_emotion": cooldown_shortened,
+                },
                 allow_silent_mode_speech=False,
+                turn_type="proactive_emotion",
             )
 
         return self._finalize(
@@ -450,10 +514,13 @@ class AvatarDecisionEngine:
         allow_silent_mode_speech: bool,
         teacher_source: str | None = None,
         teacher_route: str | None = None,
+        turn_type: str | None = None,
     ) -> DecisionResult:
         final_state = replace(state)
         if mark_response and should_respond:
-            final_state.last_response_timestamp = self.clock()
+            now = self.clock()
+            final_state.last_response_timestamp = now
+            final_state = self._apply_turn_timing(final_state, turn_type, now)
 
         spoken_text = format_spoken_response(
             text=response_text,
@@ -486,13 +553,35 @@ class AvatarDecisionEngine:
                 "conversation_active": final_state.conversation_active,
                 "route": payload.get("route"),
                 "used_backend": payload.get("used_backend"),
+                "last_turn_type": turn_type,
             },
         )
 
-    def _cooldown_passed(self, state: AvatarState) -> bool:
-        if state.last_response_timestamp is None:
-            return True
-        return (self.clock() - state.last_response_timestamp) >= state.cooldown_seconds
+    def _cooldown_status(self, state: AvatarState, emotion: str) -> tuple[bool, str, bool]:
+        now = self.clock()
+        base = float(state.cooldown_seconds)
+        effective = base
+        reason = "base"
+        shortened = False
+
+        if state.last_user_turn_timestamp is not None:
+            effective = max(effective, base * self.USER_TURN_COOLDOWN_MULTIPLIER)
+            reason = "recent_user_turn"
+            if (
+                state.last_stable_emotion_value
+                and state.last_stable_emotion_value == emotion
+                and state.last_stable_emotion_timestamp is not None
+                and state.last_stable_emotion_timestamp > state.last_user_turn_timestamp
+                and (now - state.last_stable_emotion_timestamp) >= self.EMOTION_SHIFT_DWELL_SECONDS
+            ):
+                effective = self.MIN_SHORTENED_COOLDOWN_SECONDS
+                reason = "stable_emotion_change_after_user_turn"
+                shortened = True
+
+        reference = state.last_proactive_turn_timestamp or state.last_response_timestamp
+        if reference is None:
+            return True, reason, shortened
+        return (now - reference) >= effective, reason, shortened
 
     def _generate_emotion_response(
         self,
@@ -563,12 +652,10 @@ class AvatarDecisionEngine:
         speech_text: str,
         perception: PerceptionInput,
     ) -> tuple[str, str, str | None]:
-        local_response = self._local_conversation_response(state, speech_text)
-        if local_response is not None:
-            return local_response, "local_heuristic", None
         fallback = "I hear you. Tell me what part you want to work through next, and we'll take it one step at a time."
         if self.conversation_response_provider is None:
-            return fallback, "fallback", "No ConversationResponseProvider configured."
+            local_response = self._local_conversation_response(state, speech_text)
+            return local_response or fallback, "fallback", "No ConversationResponseProvider configured."
         latest_emotion = None
         if state.recent_emotion_events:
             latest_emotion = state.recent_emotion_events[-1].get("emotion")
@@ -585,7 +672,8 @@ class AvatarDecisionEngine:
                 )
             )
         except Exception as exc:
-            return fallback, "fallback", str(exc)
+            local_response = self._local_conversation_response(state, speech_text)
+            return local_response or fallback, "fallback", str(exc)
         return response.response_text or fallback, response.backend, None
 
     def _heuristic_conversation_route(self, speech_text: str) -> str | None:
@@ -680,6 +768,8 @@ class AvatarDecisionEngine:
             return "You look a bit stuck. Tell me which step is unclear, and we will work through it together."
         if emotion in {"sad", "frustrated"}:
             if streak >= 2:
+                if last_topic:
+                    return f"You still seem a bit down. We already covered {last_topic}; want a quick recap or the next step?"
                 return "You still seem a bit down. I won't keep pushing; if you want, tell me what feels off and we'll slow it down."
             return "You seem a bit down. Is everything all right, or is a specific part of the task bothering you?"
         if emotion == "angry":
@@ -735,3 +825,30 @@ class AvatarDecisionEngine:
             if re.search(pattern, normalized):
                 return topic
         return None
+
+    def _record_stable_emotion_change(self, signal: object) -> None:
+        emotion = getattr(signal, "emotion", None)
+        is_stable = getattr(signal, "is_stable", False)
+        if not emotion or not is_stable:
+            return
+        state = self.store.get_state()
+        if state.last_stable_emotion_value == emotion:
+            return
+        self.store.record_turn_timing(
+            stable_emotion_timestamp=self.clock(),
+            stable_emotion_value=emotion,
+        )
+
+    def _apply_turn_timing(self, state: AvatarState, turn_type: str | None, now: float) -> AvatarState:
+        updated = replace(state)
+        if turn_type in {"user_driven_chat", "manual_help"}:
+            updated.last_user_turn_timestamp = now
+            updated.effective_cooldown_until = now + max(
+                float(updated.cooldown_seconds),
+                float(updated.cooldown_seconds) * self.USER_TURN_COOLDOWN_MULTIPLIER,
+            )
+        elif turn_type == "proactive_emotion":
+            updated.last_proactive_turn_timestamp = now
+            updated.last_stable_emotion_acknowledged = updated.last_stable_emotion_value
+            updated.effective_cooldown_until = now + float(updated.cooldown_seconds)
+        return updated

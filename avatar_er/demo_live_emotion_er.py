@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-import json
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -10,7 +10,12 @@ try:
 except ImportError:  # pragma: no cover - support running from inside robophone/
     from emotion_rt import EmotionCameraProvider, EmotionRTConfig
 
-from .adapters import GeminiEmotionResponseProvider
+from .adapters import (
+    GeminiConversationResponseProvider,
+    GeminiConversationRouteProvider,
+    GeminiEmotionResponseProvider,
+    GroundEvalManualQaProvider,
+)
 from .coordinator import AvatarLiveCoordinator
 from .decision import AvatarDecisionEngine
 from .state import AvatarSessionStore, JsonAvatarSessionStore
@@ -38,6 +43,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_arg_parser().parse_args()
+    store = _build_store(args.session_path)
     provider = EmotionCameraProvider(
         EmotionRTConfig(
             camera_index=args.camera_index,
@@ -49,27 +55,49 @@ def main() -> int:
     )
     coordinator = AvatarLiveCoordinator(
         engine=AvatarDecisionEngine(
-            store=_build_store(args.session_path),
+            store=store,
+            manual_qa_provider=GroundEvalManualQaProvider(),
             emotion_response_provider=GeminiEmotionResponseProvider(),
+            conversation_route_provider=GeminiConversationRouteProvider(),
+            conversation_response_provider=GeminiConversationResponseProvider(),
         ),
         emotion_provider=provider,
         current_task=args.current_task,
     )
     try:
-        coordinator.run_debug_loop(on_result=_print_terminal_event)
+        print("emotion terminal: publishing stable emotions and answering queued child inputs.")
+        while True:
+            for result in coordinator.process_next_events():
+                _print_terminal_event(result)
+            for pending in store.pop_pending_child_inputs():
+                result = coordinator.engine.process(
+                    {
+                        "speech_text": pending.get("text"),
+                        "input_source": pending.get("source") or "typed_input",
+                        "current_task": args.current_task,
+                    }
+                )
+                _print_terminal_event(result)
+            time.sleep(0.2)
     except KeyboardInterrupt:
         return 0
+    finally:
+        provider.close()
 
 
 def _print_terminal_event(result: dict) -> None:
     payload = result.get("payload", {})
     emotion = payload.get("emotion")
+    route = payload.get("route")
+    backend = payload.get("used_backend")
     backend_error = payload.get("backend_error")
-    if emotion is None:
-        return
     timestamp = datetime.now().strftime("%H:%M:%S")
     reason = result.get("reason")
-    lines = [f"[{timestamp}] emotion={emotion}"]
+    lines = [f"[{timestamp}] action={result.get('action_type')}"]
+    if emotion is not None:
+        lines.append(f"emotion={emotion}")
+    if route:
+        lines.append(f"route={route} backend={backend}")
     if backend_error:
         lines.append(f"backend_error={backend_error}")
     if result.get("should_speak") and result.get("response_text"):
