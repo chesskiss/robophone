@@ -183,6 +183,8 @@ Terminal 1, emotion/output terminal:
   --session-path avatar_er/state/live_session.json
 ```
 
+By default, the emotion/output terminal resets the shared session file on startup so each fresh run starts with empty history. Use `--no-reset-session` if you intentionally want to reuse the previous session.
+
 Terminal 2, child input terminal:
 
 ```bash
@@ -190,6 +192,8 @@ Terminal 2, child input terminal:
   --interactive-replies \
   --session-path avatar_er/state/live_session.json
 ```
+
+The child input terminal does not reset the shared session by default, so starting it after the emotion terminal will not wipe the live state. If you ever want the input terminal to reset the session itself, add `--reset-session`.
 
 Or seed the first typed child turn:
 

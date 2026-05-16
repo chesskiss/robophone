@@ -38,12 +38,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-path", default="emotion_rt/models/Pretrained_EfficientFace.tar")
     parser.add_argument("--current-task", default="live RoboPhone session")
     parser.add_argument("--session-path", default=str(DEFAULT_SESSION_PATH))
+    parser.add_argument("--no-reset-session", action="store_true")
     return parser
 
 
 def main() -> int:
     args = build_arg_parser().parse_args()
-    store = _build_store(args.session_path)
+    store = _build_store(args.session_path, reset_session=not args.no_reset_session)
     provider = EmotionCameraProvider(
         EmotionRTConfig(
             camera_index=args.camera_index,
@@ -107,10 +108,13 @@ def _print_terminal_event(result: dict) -> None:
     print("\n".join(lines))
 
 
-def _build_store(session_path: str | None) -> AvatarSessionStore:
+def _build_store(session_path: str | None, reset_session: bool = False) -> AvatarSessionStore:
     if not session_path:
         return AvatarSessionStore()
-    return JsonAvatarSessionStore(session_path=session_path)
+    session_file = Path(session_path)
+    if reset_session and session_file.exists():
+        session_file.unlink()
+    return JsonAvatarSessionStore(session_path=session_file)
 
 
 if __name__ == "__main__":

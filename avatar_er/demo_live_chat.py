@@ -17,12 +17,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--initial-child-message", default=None)
     parser.add_argument("--interactive-replies", action="store_true")
     parser.add_argument("--session-path", default=str(DEFAULT_SESSION_PATH))
+    parser.add_argument("--reset-session", action="store_true")
     return parser
 
 
 def main() -> int:
     args = build_arg_parser().parse_args()
-    store = _build_store(args.session_path)
+    store = _build_store(args.session_path, reset_session=args.reset_session)
 
     if args.initial_child_message:
         _enqueue_child_input(
@@ -49,10 +50,13 @@ def main() -> int:
         return 0
 
 
-def _build_store(session_path: str | None) -> AvatarSessionStore:
+def _build_store(session_path: str | None, reset_session: bool = False) -> AvatarSessionStore:
     if not session_path:
         return AvatarSessionStore()
-    return JsonAvatarSessionStore(session_path=session_path)
+    session_file = Path(session_path)
+    if reset_session and session_file.exists():
+        session_file.unlink()
+    return JsonAvatarSessionStore(session_path=session_file)
 
 
 def _enqueue_child_input(store: AvatarSessionStore, text: str, source: str) -> None:
