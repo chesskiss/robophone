@@ -24,6 +24,7 @@ Modules:
 - `demo.py`: Pure ER simulation script.
 - `demo_live_emotion_er.py`: live Camo emotion input into ER.
 - `demo_live_chat.py`: input-only terminal for typed child replies without camera input.
+- `demo_live_stt_input.py`: input-only terminal for microphone STT child replies without camera output.
 - `demo_live_emotion_stt.py`: live Camo emotion plus STT into ER.
 - `demo_live_full.py`: live Camo emotion plus STT plus grounded Q&A.
 
@@ -204,6 +205,16 @@ Or seed the first typed child turn:
 ```
 
 These are still separate processes, but they now share one local JSON-backed ER session file. The child input terminal only queues child messages into shared state. The emotion terminal publishes stable emotion state, consumes queued child inputs, and prints all teacher responses in one place.
+
+Optional third terminal, STT child input:
+
+```bash
+./.venv/bin/python -m avatar_er.demo_live_stt_input \
+  --stt-api-url http://localhost:8001/transcribe \
+  --session-path avatar_er/state/live_session.json
+```
+
+This STT terminal behaves exactly like the typed child input terminal, except the child messages come from microphone transcription and are queued into the same shared ER session. The emotion/output terminal remains the only place where teacher responses are printed.
 
 ## Runtime Manual-Q&A Integration
 

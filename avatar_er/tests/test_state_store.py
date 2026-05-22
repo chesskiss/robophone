@@ -59,6 +59,20 @@ class JsonSessionStoreTests(unittest.TestCase):
             state = second.get_state()
             self.assertEqual(state.conversation_history[-1]["text"], "How are you feeling?")
 
+    def test_pending_child_inputs_persist_across_instances(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            session_path = Path(tmpdir) / "session.json"
+            writer = JsonAvatarSessionStore(session_path)
+            writer.enqueue_child_input(
+                ConversationMessage(role="child", text="I need help", source="stt")
+            )
+
+            reader = JsonAvatarSessionStore(session_path)
+            pending = reader.pop_pending_child_inputs()
+            self.assertEqual(len(pending), 1)
+            self.assertEqual(pending[0]["text"], "I need help")
+            self.assertEqual(pending[0]["source"], "stt")
+
 
 if __name__ == "__main__":
     unittest.main()

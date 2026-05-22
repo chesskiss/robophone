@@ -69,7 +69,10 @@ class STTSpeechProvider(SpeechProvider):
     def start(self) -> None:
         if self._client is not None:
             return
-        from robophone.stt.stt import STTClient
+        try:
+            from robophone.stt.stt import STTClient
+        except ImportError:  # pragma: no cover - support running from inside robophone/
+            from stt.stt import STTClient
 
         def on_transcription(text: str) -> None:
             self._buffer.append(
