@@ -1,0 +1,128 @@
+:root {
+  color-scheme: light;
+  --bg: #eef2ed;
+  --ink: #17211b;
+  --muted: #607066;
+  --panel: rgba(255, 255, 252, 0.86);
+  --line: rgba(23, 33, 27, 0.14);
+  --accent: #2e8f78;
+  --accent-soft: rgba(46, 143, 120, 0.18);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow: hidden;
+  font-family: ui-rounded, "Avenir Next", "Trebuchet MS", sans-serif;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255, 210, 92, 0.24), transparent 28%),
+    linear-gradient(135deg, #edf3ef 0%, #d7e3dd 52%, #f2eee4 100%);
+  color: var(--ink);
+}
+
+.app-shell {
+  width: 100vw;
+  height: 100vh;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#avatar-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.speech-panel {
+  position: absolute;
+  left: clamp(18px, 4vw, 56px);
+  bottom: clamp(18px, 5vh, 56px);
+  width: min(520px, calc(100vw - 36px));
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 24px 70px rgba(32, 45, 38, 0.18);
+  backdrop-filter: blur(18px);
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 20px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 6px var(--accent-soft);
+}
+
+.teacher-text {
+  min-height: 72px;
+  margin: 16px 0 0;
+  font-size: clamp(21px, 2.7vw, 34px);
+  line-height: 1.12;
+  font-weight: 720;
+  letter-spacing: 0;
+}
+
+.teacher-text:empty::before {
+  content: " ";
+}
+
+.child-text {
+  min-height: 20px;
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.child-text:not(:empty)::before {
+  content: "child: ";
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.emotion-tag {
+  position: absolute;
+  top: clamp(18px, 4vh, 42px);
+  right: clamp(18px, 4vw, 54px);
+  min-width: 92px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 252, 0.72);
+  color: var(--ink);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  backdrop-filter: blur(16px);
+}
+
+@media (max-width: 720px) {
+  .speech-panel {
+    padding: 15px 16px;
+  }
+
+  .teacher-text {
+    min-height: 62px;
+  }
+}
+

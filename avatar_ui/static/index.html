@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RoboPhone Avatar</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="stage" aria-label="RoboPhone avatar stage">
+        <canvas id="avatar-canvas"></canvas>
+        <aside class="speech-panel" aria-live="polite">
+          <div class="status-row">
+            <span id="status-dot" class="status-dot"></span>
+            <span id="status-text">Waiting for ER session</span>
+          </div>
+          <p id="teacher-text" class="teacher-text"></p>
+          <p id="child-text" class="child-text"></p>
+        </aside>
+        <div id="emotion-tag" class="emotion-tag">idle</div>
+      </section>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
+
