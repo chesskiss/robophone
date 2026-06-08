@@ -18,18 +18,6 @@
     "content_scripts": [
         {
             "matches": [
-                "*://staging.code.robo-phone.com/*",
-                "*://code.robo-phone.com/*",
-                "*://www.code.robo-phone.com/*"
-            ],
-            "js": [
-                "capture_blockly.js"
-            ],
-            "world": "MAIN",
-            "run_at": "document_start"
-        },
-        {
-            "matches": [
                 "<all_urls>"
             ],
             "js": [
