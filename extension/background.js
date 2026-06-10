@@ -292,7 +292,7 @@ chrome.windows.onRemoved.addListener(async (windowId) => {
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
 
 async function handleGeminiFlow(userPrompt, apiKey, requestTabId) {
-    apiKey = "AIzaSyCcC7r8gGSSfnRCiP7BhfWqFgK6llIN6rI";
+    apiKey = "REMOVED_GEMINI_API_KEY";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
     console.log(`[BlocklyAgent] POST ${url.replace(apiKey, "<key>")}`);
     const manual = await loadRoboPhoneManual();
@@ -340,12 +340,20 @@ SCRIPT RULES:
    - To put a value block into a value socket, use action='spawn' with parent set to the consumer block id and pos:'nested'. NEVER use action='input' with value set to a logical id — input only fills text fields and dropdowns, it cannot reference another block.
 8. For an 'input' command, the 'block' property MUST be a previously spawned logical id (e.g. 'msg1', 'graph1'). The 'value' is plain text or a dropdown option string. It must never be another logical id and never a field name like 'x', 'y', 'rate'.
 9. If you need to fill several fields on the same spawned block, emit multiple 'input' commands all referencing that same logical id, in field order.
+10. Do NOT invent optional style inputs. For blocks like LCD_MESSAGE and LCD_TEXT, only emit color/size inputs when the user explicitly asked for them or the task clearly requires them. If the user only asked to display text, emit only the text input.
 
 CORRECT SHAPES (these are the only legal command forms):
 - spawn (root):     {"action":"spawn","block":"INITIATE","id":"start","cat":["CATLOOPS"]}
 - spawn (child):    {"action":"spawn","block":"LCD_MESSAGE","id":"msg1","cat":["CATSMARTPHONE","CATVIRTUALACTION"],"parent":"start","pos":"nested"}
 - spawn (in value): {"action":"spawn","block":"MATH_NUMBER","id":"n1","cat":["CATMATH"],"parent":"msg1","pos":"nested"}
 - input field:      {"action":"input","block":"msg1","value":"Hello World"}
+
+LCD MESSAGE DEFAULT:
+- For requests like "display hello", "display AC", or "show hello ac", prefer:
+  - spawn INITIATE
+  - spawn LCD_MESSAGE under INITIATE
+  - one input on the LCD_MESSAGE id containing the full message text
+- Do not add extra inputs like "red" or "small" unless the user explicitly requested a color or size.
 
 WRONG (will be rejected):
 - {"action":"spawn","id":"start"}                          ← missing 'block'
@@ -969,16 +977,14 @@ async function executeOnPage(method, args, preferredTabId) {
             world: "MAIN"
         });
         const present = !!probe?.[0]?.result;
-        console.log(`[BlocklyAgent] BlocklyAgent present in MAIN world: ${present}`);
-        if (!present) {
-            console.log("[BlocklyAgent] injecting blockly_methods.js into MAIN world...");
-            await chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                files: ["blockly_methods.js"],
-                world: "MAIN"
-            });
-            await new Promise(r => setTimeout(r, 200));
-        }
+        console.log(`[BlocklyAgent] BlocklyAgent present in MAIN world before reinject: ${present}`);
+        console.log("[BlocklyAgent] injecting blockly_methods.js into MAIN world...");
+        await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["blockly_methods.js"],
+            world: "MAIN"
+        });
+        await new Promise(r => setTimeout(r, 200));
     } catch (probeErr) {
         console.error("[BlocklyAgent] Probe/inject failed:", probeErr);
         throw new Error(`Could not inject into tab ${tab.id} (${tab.url}). Refresh the Blockly page and retry. Underlying: ${probeErr.message}`);

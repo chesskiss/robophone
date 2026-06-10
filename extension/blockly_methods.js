@@ -516,9 +516,9 @@
             const dropStrategies = [];
             let parentNode = null, pRect = null;
             if (parentId) {
-                parentNode = document.querySelector(`g[data-llm-id="${parentId}"]`);
-                if (!parentNode) throw new Error(`Parent DOM node ${parentId} missing.`);
-                pRect = this._getParentVisualRect(parentNode);
+                const initialParentState = await this._refreshParentVisualState(parentId, "initial parent resolution");
+                parentNode = initialParentState.parentNode;
+                pRect = initialParentState.rect;
                 const fullRect = parentNode.getBoundingClientRect();
                 console.log(`   parent visual bbox (path-based): x=${Math.round(pRect.left)} y=${Math.round(pRect.top)} w=${Math.round(pRect.width)} h=${Math.round(pRect.height)}`);
                 if (Math.abs(fullRect.height - pRect.height) > 10) {
@@ -602,6 +602,10 @@
                     dropStrategies.push((cur) => [
                         { x: cur.left + 20, y: cur.bottom + 10, label: "just below parent" },
                         { x: cur.left + 20, y: cur.bottom + 20, label: "lower below parent" },
+                        { x: cur.left + 28, y: cur.bottom + 10, label: "right of primary below parent" },
+                        { x: cur.left + 12, y: cur.bottom + 10, label: "left of primary below parent" },
+                        { x: cur.left + 20, y: cur.bottom + 4, label: "closer to parent bottom edge" },
+                        { x: cur.left + 20, y: cur.bottom + 28, label: "further below parent" },
                     ]);
                 }
             } else {
@@ -671,8 +675,10 @@
                 }
                 // Refresh pRect AGAIN here (after any category reopen above)
                 // so the strategy gets the CURRENT parent position.
-                if (parentNode) {
-                    pRect = this._getParentVisualRect(parentNode);
+                if (parentId) {
+                    const liveParentState = await this._refreshParentVisualState(parentId, `before drag attempt ${attempt}`);
+                    parentNode = liveParentState.parentNode;
+                    pRect = liveParentState.rect;
                 }
                 // Compute this attempt's target from the lazy generator using
                 // the current pRect. If the generator returns null (e.g.
@@ -758,15 +764,20 @@
                             ? `✅ attached — parent path grew (Δh=${Math.round(dHeight)}, Δw=${Math.round(dWidth)})`
                             : `⚠️ NOT attached — parent path unchanged (Δh=${Math.round(dHeight)}). Child at top=${Math.round(cRect.top)} vs parentOrigBottom=${Math.round(pRect.bottom)}. Will undo & retry.`;
                     } else if (positionType === "next") {
-                        // Strict — a chained 'next' MUST cause the parent's
-                        // path to grow. The old `closeBelow` fallback (child
-                        // touching parent's bottom edge) was accepting drops
-                        // onto cap blocks (which have no 'next' connector) as
-                        // success, leading to the "block floats below cap" bug.
-                        attachmentOk = parentGrew;
+                        // Prefer the strict growth signal, but on this RoboPhone
+                        // build some valid "next" snaps do not expand the parent
+                        // path reliably. Fall back to a tight visual-chain check:
+                        // the child should land immediately under the parent and
+                        // remain roughly left-aligned with it.
+                        const closeBelow = cRect.top <= pRect.bottom + 14 && cRect.top >= pRect.bottom - 18;
+                        const leftAligned = Math.abs(cRect.left - pRect.left) <= 18;
+                        const visuallyChained = closeBelow && leftAligned;
+                        attachmentOk = parentGrew || visuallyChained;
                         attachmentNote = attachmentOk
-                            ? `✅ child is chained next to parent (Δh=${Math.round(dHeight)})`
-                            : `⚠️ child NOT chained — parent path unchanged (Δh=${Math.round(dHeight)}). Will undo & retry.`;
+                            ? (parentGrew
+                                ? `✅ child is chained next to parent (Δh=${Math.round(dHeight)})`
+                                : `✅ child accepted as visually chained next to parent (Δh=${Math.round(dHeight)}, child.top=${Math.round(cRect.top)}, parent.bottom=${Math.round(pRect.bottom)}, Δleft=${Math.round(cRect.left - pRect.left)})`)
+                            : `⚠️ child NOT chained — parent path unchanged (Δh=${Math.round(dHeight)}), child.top=${Math.round(cRect.top)}, parent.bottom=${Math.round(pRect.bottom)}, Δleft=${Math.round(cRect.left - pRect.left)}. Will undo & retry.`;
                     }
                 }
                 console.log(`   ${attachmentNote || "no attachment check"}; new block id=${cand_newBlock.id}.`);
@@ -804,9 +815,11 @@
                 // to its pre-drop size. We need an accurate baseline for the
                 // next attempt's grew-vs-unchanged check. Use path-based
                 // geometry so orphan free-floats don't inflate the size.
-                if (parentNode) {
-                    pRect = this._getParentVisualRect(parentNode);
-                    console.log(`   parent visual bbox AFTER undo+flyout-reopen: h=${Math.round(pRect.height)}`);
+                if (parentId) {
+                    const recoveredParentState = await this._refreshParentVisualState(parentId, "after undo+flyout-reopen");
+                    parentNode = recoveredParentState.parentNode;
+                    pRect = recoveredParentState.rect;
+                    console.log(`   parent visual bbox AFTER undo+flyout-reopen: x=${Math.round(pRect.left)} y=${Math.round(pRect.top)} w=${Math.round(pRect.width)} h=${Math.round(pRect.height)}`);
                 }
             }
 
@@ -872,10 +885,13 @@
                 // --- CASE B: DROPDOWN MENU ---
                 console.log(`🔽 Selecting "${value}" from dropdown...`);
 
-                // Find all menu items
-                const items = Array.from(dropdownWidget.querySelectorAll('.blocklyMenuItem, .goog-menuitem'));
+                // On RoboPhone, the visible menu items are sometimes rendered
+                // outside the nominal dropdown container. Query visible menu
+                // items globally instead of relying on .blocklyDropDownContent
+                // being the true parent of the options.
+                const items = this._getVisibleDropdownItems();
                 let targetItem = items.find(item => {
-                    const textContent = item.textContent.toLowerCase().trim();
+                    const textContent = (item.textContent || "").toLowerCase().trim();
                     return textContent === value.toLowerCase().trim();
                 });
 
@@ -887,19 +903,62 @@
                     });
                 }
 
+                // Icon/palette fallback: derive semantic value from the image
+                // filename, e.g. /static/images/red.png -> "red".
+                if (!targetItem) {
+                    targetItem = items.find(item => {
+                        const img = item.querySelector('img');
+                        if (!img || !img.src) return false;
+                        const normalized = this._normalizePaletteValueFromImageSource(img.src);
+                        if (!normalized) return false;
+                        if (normalized === "plug") return false; // launcher / special-case, not a normal color value
+                        return normalized === value.toLowerCase().trim();
+                    });
+                }
+
                 if (targetItem) {
                     targetItem.click();
                     await this._wait(300);
                 } else {
-                    console.warn(`⚠️ Option '${value}' not found in dropdown. Available: ${items.map(i => i.textContent.trim()).join(", ")}`);
+                    const available = items.map(i => {
+                        const text = (i.textContent || "").trim();
+                        const img = i.querySelector('img');
+                        const normalized = img?.src ? this._normalizePaletteValueFromImageSource(img.src) : "";
+                        return normalized || text;
+                    }).join(", ");
+                    console.warn(`⚠️ Option '${value}' not found in dropdown. Available: ${available}`);
                     // Close menu by clicking elsewhere
                     this._fire('pointerdown', 0, 0, document.body);
                     this._fire('pointerup', 0, 0, document.body);
+                    throw new Error(`Dropdown option '${value}' not found.`);
                 }
 
             } else {
                 throw new Error("Input widget failed to open (No Input or Dropdown detected).");
             }
+        },
+
+        _getVisibleDropdownItems: function () {
+            return Array.from(document.querySelectorAll('.blocklyMenuItem, .goog-menuitem'))
+                .filter(item => {
+                    const rect = item.getBoundingClientRect();
+                    return rect.width > 0 && rect.height > 0;
+                });
+        },
+
+        _normalizePaletteValueFromImageSource: function (src) {
+            if (!src || typeof src !== "string") return null;
+            const match = src.toLowerCase().match(/\/([^\/?#]+)\.(png|svg|jpg|jpeg|gif)(?:[?#].*)?$/);
+            if (!match) return null;
+            const base = match[1];
+            const paletteMap = {
+                red: "red",
+                yellow: "yellow",
+                green: "green",
+                blue: "blue",
+                plug: "plug",
+            };
+            return paletteMap[base] || base || null;
         },
 
         // --- HELPERS ---
@@ -938,18 +997,13 @@
                 }
 
                 if (isLeaf) {
-                    // For the leaf: we need the flyout to actually show its blocks.
-                    // If the leaf is already selected AND the flyout has content
-                    // matching this category, skip the click (avoids toggle-off).
-                    // Otherwise click. Then verify.
-                    const after = this._categoryRowState(catLabel);
-                    if (!after.selected) {
-                        console.log(`   clicking leaf '${catLabel}'.`);
-                        await this._openCategoryTab(catLabel, true);
-                        await this._wait(700);
-                    } else {
-                        console.log(`   leaf '${catLabel}' already selected — skipping click to avoid toggle-off.`);
-                    }
+                    // On RoboPhone, selected=true is not enough to trust that
+                    // the flyout is fresh and draggable. Always refresh the
+                    // leaf category so the visible flyout blocks are rebuilt
+                    // before we try to drag.
+                    console.log(`   clicking leaf '${catLabel}'.`);
+                    await this._openCategoryTab(catLabel, true);
+                    await this._wait(700);
                 } else {
                     // For parents (non-leaf): we just need them EXPANDED so
                     // their children are visible. Don't toggle if already
@@ -1285,6 +1339,30 @@
         // Removing the SVG node directly corrupts Blockly's internal block
         // registry (causes "Cannot read properties of null (reading 'id')"
         // from BlockSvg.select when the next click happens). Ctrl+Z lets
+        _refreshParentVisualState: async function (parentId, context) {
+            const label = context || "parent refresh";
+            for (let attempt = 1; attempt <= 4; attempt++) {
+                const candidateNode = document.querySelector(`g[data-llm-id="${parentId}"]`);
+                if (!candidateNode) {
+                    console.warn(`   parent DOM missing during ${label} (attempt ${attempt}/4).`);
+                    await this._wait(150);
+                    continue;
+                }
+                const rect = this._getParentVisualRect(candidateNode);
+                if (rect && rect.width > 0 && rect.height > 0) {
+                    return { parentNode: candidateNode, rect };
+                }
+                console.warn(`   parent visual rect invalid during ${label} (attempt ${attempt}/4): w=${Math.round(rect?.width || 0)} h=${Math.round(rect?.height || 0)}.`);
+                await this._wait(150);
+            }
+            const finalNode = document.querySelector(`g[data-llm-id="${parentId}"]`);
+            if (!finalNode) {
+                throw new Error(`Parent DOM node '${parentId}' missing during ${label}.`);
+            }
+            const finalRect = this._getParentVisualRect(finalNode);
+            throw new Error(`Parent visual rect invalid during ${label} (w=${Math.round(finalRect?.width || 0)}, h=${Math.round(finalRect?.height || 0)}).`);
+        },
+
         // Blockly clean up its own state.
         // Return the parent block's OWN visible bounding rect — only its
         // path outline, NOT its descendants or orphaned free-floats that

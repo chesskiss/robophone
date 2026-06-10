@@ -201,7 +201,8 @@ instruction_template:
   - Go to Virtual Display
   - Drag LCD Grid / lcd grid write into the program
   - Put the text in the text socket
-  - Set line, offset, color, and size
+  - Set line and offset
+  - Only choose color and size if the user explicitly asked for them
 example_task: Display label 'sin' at line 0 offset 0 in red.
 ```
 
@@ -234,7 +235,7 @@ instruction_template:
   - Go to Virtual Display
   - Drag LCD Message
   - Put the message text into the text input
-  - Choose color/size if available
+  - Leave optional styling unchanged unless the user explicitly asked for color or size
 example_task: Display 'Program complete'.
 ```
 
