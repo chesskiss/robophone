@@ -1,0 +1,43 @@
+{
+    "manifest_version": 3,
+    "name": "Blockly AI Automation",
+    "version": "1.0",
+    "description": "Automate Blockly using Gemini AI Function Calling",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage"
+    ],
+    "host_permissions": [
+        "https://generativelanguage.googleapis.com/*",
+        "<all_urls>"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "blockly_api_engine.js",
+                "blockly_methods.js"
+            ],
+            "world": "MAIN",
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content_script.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "action": {
+        "default_title": "Blockly AI Automation"
+    }
+}

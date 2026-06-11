@@ -1,8 +1,12 @@
 // ----------------------------------------------------------------------------
-// UNIVERSAL BLOCKLY AGENT V14 (Production Release)
+// UNIVERSAL BLOCKLY AGENT V15 (API-first placement)
 // ----------------------------------------------------------------------------
+// Placement now prefers window.BlocklyApiEngine (blockly_api_engine.js) —
+// programmatic spawn/connect/field-set against Blockly's object model — and
+// keeps the V14 drag-simulation engine as the fallback for builds where the
+// workspace object can't be reached.
 (function installUniversalAgent() {
-    console.log("🤖 Installing Universal Blockly Agent V14 (Production Release)...");
+    console.log("🤖 Installing Universal Blockly Agent V15 (API-first placement)...");
 
     // ------------------------------------------------------------------------
     // BLOCK_FRAGMENTS — canonical text-fragment fingerprint per Msg key.
@@ -287,6 +291,11 @@
     window.BlocklyAgent = {
         BLOCK_FRAGMENTS: BLOCK_FRAGMENTS,
         VALUE_BLOCKS: VALUE_BLOCKS,
+        // Bumped on every code change. The background probe compares this
+        // against its expected version and re-injects fresh files when the
+        // page is still holding scripts from before an extension reload.
+        VERSION: "15.8",
+
         CAP_BLOCKS: CAP_BLOCKS,
 
         // --- PUBLIC API ---
@@ -296,8 +305,48 @@
          * @param {Array} commandList - The JSON script from the LLM.
          */
         execute: async function (commandList) {
+            // Concurrency latch — two interleaved runs on the same workspace
+            // (double-click on Run, overlapping popup messages) corrupt each
+            // other's pre/post scans and drag state machines.
+            if (this._executing) {
+                console.warn("⛔ execute() called while another script is still running — rejected.");
+                return {
+                    ok: false,
+                    error: "Another script is already executing on this workspace. Wait for it to finish and run again.",
+                    commandsExecuted: 0,
+                    spawnedCount: 0
+                };
+            }
+            this._executing = true;
+            try {
+                return await this._executeImpl(commandList);
+            } finally {
+                this._executing = false;
+            }
+        },
+
+        _executeImpl: async function (commandList) {
             console.log("🧹 Clearing Workspace...");
             await this.clearPage();
+
+            // Reset the API engine's per-run state (field cursors, block
+            // registry, cached workspace handle) and announce which placement
+            // mode this run will use.
+            const apiEngine = window.BlocklyApiEngine;
+            if (apiEngine) apiEngine.resetRun();
+            // Per-run counters: how many spawns each engine actually handled.
+            // "api mode" with drag>0 means some spawns silently degraded to
+            // the drag engine — exactly the situation worth investigating.
+            this._spawnStats = { api: 0, drag: 0 };
+            // Per-run DOM-field-engine state: which field slots were already
+            // written per block, and which runtime ids this run spawned (their
+            // nested fields are excluded from their parents' slot lists).
+            this._domSlotsUsed = new Map();
+            this._ownedRuntimeIds = new Set();
+            const placementMode = (apiEngine && apiEngine.available()) ? "api" : "drag";
+            console.log(placementMode === "api"
+                ? "⚙️ Placement mode: Blockly API (programmatic spawn/connect; drag engine armed as fallback)."
+                : "⚙️ Placement mode: drag simulation (Blockly workspace object / API engine not found on this build).");
 
             console.log("📜 RECEIVED SCRIPT PAYLOAD:");
             console.log(JSON.stringify(commandList, null, 2));
@@ -310,6 +359,11 @@
             const idToBlockKey = new Map();
             let commandsExecuted = 0;
             let spawnedCount = 0;
+            // Field-write failures are WARNINGS, not run-killers: by the time
+            // an 'input' command fails, the program structure is already
+            // placed — an unmatchable value (e.g. an LLM-invented dropdown
+            // option like "small" on a color dropdown) shouldn't scrap it.
+            const inputFailures = [];
 
             const totalSteps = commandList.length;
             for (let stepIdx = 0; stepIdx < commandList.length; stepIdx++) {
@@ -355,11 +409,7 @@
                             idMap.set(cmd.id, newId);
                             idToBlockKey.set(cmd.id, cmd.block);
                         }
-                        const spawnedNode = document.querySelector(`g[data-llm-id="${newId}"]`);
-                        if (spawnedNode) {
-                            spawnedNode.dataset.llmBlockKey = cmd.block;
-                            spawnedNode.dataset.llmInputCursor = "0";
-                        }
+                        this._ownedRuntimeIds.add(newId);
                         spawnedCount += 1;
                         commandsExecuted += 1;
                         console.log(`✅ ${stepLabel} DONE — spawned '${cmd.block}' as logical '${cmd.id || "(no id)"}' runtime='${newId}' (pos='${pos}')`);
@@ -368,9 +418,14 @@
                         const runtimeId = idMap.get(cmd.block);
                         if (!runtimeId) throw new Error(`Target '${cmd.block}' not found.`);
                         console.log(`   resolved target logical '${cmd.block}' -> runtime '${runtimeId}'`);
-                        await this._handleInput(runtimeId, cmd.value);
-                        commandsExecuted += 1;
-                        console.log(`✅ ${stepLabel} DONE — input '${cmd.value}' applied to '${cmd.block}'`);
+                        try {
+                            await this._handleInput(runtimeId, cmd.value);
+                            commandsExecuted += 1;
+                            console.log(`✅ ${stepLabel} DONE — input '${cmd.value}' applied to '${cmd.block}'`);
+                        } catch (inputErr) {
+                            inputFailures.push({ block: cmd.block, value: String(cmd.value), why: inputErr.message });
+                            console.warn(`⚠️ ${stepLabel} input '${cmd.value}' on '${cmd.block}' FAILED — continuing with the rest of the script. Reason: ${inputErr.message}`);
+                        }
                     }
                 } catch (e) {
                     console.error(`❌ ${stepLabel} FAILED: ${e.message}`);
@@ -378,15 +433,21 @@
                         ok: false,
                         error: e.message,
                         commandsExecuted,
-                        spawnedCount
+                        spawnedCount,
+                        placementMode,
+                        spawnStats: { ...this._spawnStats },
+                        inputFailures
                     };
                 }
             }
-            console.log("🎉 Script Complete.");
+            console.log(`🎉 Script Complete. Spawn paths: api=${this._spawnStats.api}, drag=${this._spawnStats.drag}. Field warnings: ${inputFailures.length}.`);
             return {
                 ok: true,
                 commandsExecuted,
-                spawnedCount
+                spawnedCount,
+                placementMode,
+                spawnStats: { ...this._spawnStats },
+                inputFailures
             };
         },
 
@@ -420,8 +481,27 @@
         // --- PHYSICS ENGINE ---
 
         _spawnPhysical: async function (catPath, blockKey, parentId, positionType) {
+            // PREFERRED PATH: talk to Blockly's object model directly. This is
+            // deterministic (no coordinates, no snap radii, no undo churn) and
+            // self-verifying via child.getParent(). Any failure falls through
+            // to the legacy drag engine below.
+            const engine = window.BlocklyApiEngine;
+            if (engine && engine.available()) {
+                try {
+                    const apiId = await this._spawnViaApi(engine, catPath, blockKey, parentId, positionType);
+                    if (apiId) {
+                        if (this._spawnStats) this._spawnStats.api++;
+                        return apiId;
+                    }
+                    console.warn(`⚠️ API spawn for '${blockKey}' returned no block — falling back to drag engine.`);
+                } catch (apiErr) {
+                    console.warn(`⚠️ API spawn for '${blockKey}' failed (${apiErr.message}) — falling back to drag engine.`);
+                }
+            }
             try {
-                return await this._spawnPhysicalImpl(catPath, blockKey, parentId, positionType);
+                const dragId = await this._spawnPhysicalImpl(catPath, blockKey, parentId, positionType);
+                if (this._spawnStats) this._spawnStats.drag++;
+                return dragId;
             } catch (e) {
                 // Append the underlying JS stack trace so the user can see
                 // exactly which expression triggered the error (e.g. which
@@ -433,6 +513,122 @@
                 wrapped.stack = e.stack;
                 throw wrapped;
             }
+        },
+
+        // Shared search-term resolution for a block key: canonical fragment
+        // fingerprint when we have one, Msg-derived phrase otherwise.
+        _searchCanonicalFor: function (blockKey) {
+            const fragments = this.BLOCK_FRAGMENTS[blockKey];
+            if (Array.isArray(fragments) && fragments.length > 0) {
+                return { canonical: fragments, logLabel: JSON.stringify(fragments) };
+            }
+            const rawLabel = this._getLabel(blockKey);
+            let searchPhrase = rawLabel.split(/%[0-9]/)[0].trim();
+            if (!searchPhrase) searchPhrase = rawLabel.replace(/%[0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+            return { canonical: searchPhrase, logLabel: `'${searchPhrase}'` };
+        },
+
+        // Resolve a runtime id (Blockly block id from the API path, or
+        // data-llm-id from the drag path) to a live workspace block object.
+        _resolveWorkspaceBlock: function (runtimeId) {
+            const engine = window.BlocklyApiEngine;
+            if (!engine) return null;
+            const ws = engine.getWorkspace();
+            if (!ws) return null;
+            const registered = engine.blocksById.get(runtimeId);
+            let b = (registered && !registered.disposed) ? registered : null;
+            if (!b && ws.getBlockById) b = ws.getBlockById(runtimeId);
+            if (!b) {
+                // Drag-spawned blocks carry our data-llm-id; their <g> also has
+                // Blockly's own data-id we can map back into the model.
+                const dom = document.querySelector(`g[data-llm-id="${runtimeId}"]`);
+                const dataId = dom ? dom.getAttribute('data-id') : null;
+                if (dataId && ws.getBlockById) b = ws.getBlockById(dataId);
+                if (!b && dom && ws.getAllBlocks) {
+                    // Last resort for builds whose workspace <g> carries no
+                    // data-id: find the model block whose SVG root IS this node.
+                    try {
+                        b = ws.getAllBlocks(false).find(blk => blk.getSvgRoot && blk.getSvgRoot() === dom) || null;
+                    } catch (_) { b = null; }
+                }
+            }
+            // NEVER hand back a shadow (e.g. controls_for's 'from' number) —
+            // a shadow has a single field, so every input targeting this id
+            // would clamp onto that one field ("all values land in from").
+            // Walk up to the nearest real block.
+            let guard = 0;
+            while (b && typeof b.isShadow === "function" && b.isShadow() && guard++ < 10) {
+                const parent = b.getParent ? b.getParent() : null;
+                if (!parent) break;
+                console.warn(`⚠️ Runtime id '${runtimeId}' resolved to SHADOW '${b.type}' — walking up to real parent '${parent.type}'.`);
+                b = parent;
+            }
+            return b || null;
+        },
+
+        // API-based spawn: resolve the flyout block once (cached per key),
+        // append a fresh copy to the workspace, and connect it through real
+        // Connection objects. Throws on hard failures (parent unresolvable,
+        // no compatible socket); returns null on soft ones (no data-id on
+        // this build) so the caller can fall back to the drag engine.
+        _spawnViaApi: async function (engine, catPath, blockKey, parentId, positionType) {
+            const ws = engine.getWorkspace();
+            if (!ws) return null;
+
+            // Resolve (and cache) the serialized flyout state for this key.
+            // Each key pays the category-navigation cost only once per page
+            // load — later spawns of the same key skip the toolbox entirely.
+            let ser = engine.getCachedState(blockKey);
+            if (!ser) {
+                console.log(`📂 [API] Resolving '${blockKey}' from the flyout (first use).`);
+                await this._navigatePath(catPath);
+                const { canonical, logLabel } = this._searchCanonicalFor(blockKey);
+                let node = this._huntForBlock(canonical, blockKey);
+                if (!node) {
+                    const lastCatKey = catPath[catPath.length - 1];
+                    const lastCatLabel = this._getLabel(lastCatKey) || lastCatKey;
+                    console.warn(`🔁 [API] retrying by reopening category '${lastCatLabel}'.`);
+                    await this._openCategoryTab(lastCatLabel, true);
+                    node = this._huntForBlock(canonical, blockKey);
+                }
+                if (!node) node = this._discoverBlockByKey(blockKey);
+                if (!node) throw new Error(`Visual block ${logLabel} not found in flyout.`);
+                const flyBlock = engine.resolveFlyoutBlock(node);
+                if (!flyBlock) {
+                    console.warn(`⚠️ [API] flyout DOM node for '${blockKey}' has no resolvable Blockly block (no data-id?) — cannot use API path.`);
+                    return null;
+                }
+                ser = engine.serializeFlyoutBlock(flyBlock);
+                if (!ser) return null;
+                engine.cacheState(blockKey, ser);
+                console.log(`🗃️ [API] cached '${blockKey}' as type '${flyBlock.type}' (${ser.kind} serialization).`);
+            }
+
+            const newBlock = engine.appendSerialized(ser);
+            if (!newBlock) return null;
+
+            try {
+                if (parentId) {
+                    const parentBlock = this._resolveWorkspaceBlock(parentId);
+                    if (!parentBlock) throw new Error(`Parent runtime id '${parentId}' not resolvable to a workspace block.`);
+                    const res = engine.connect(parentBlock, newBlock, positionType);
+                    if (!res.ok) throw new Error(`connect failed: ${res.why}`);
+                    console.log(`🔗 [API] '${blockKey}' connected via ${res.mode}.`);
+                } else {
+                    engine.positionAsRoot(newBlock);
+                    console.log(`📍 [API] '${blockKey}' placed as a root block.`);
+                }
+            } catch (e) {
+                // Never leave a half-placed orphan behind: dispose cleanly via
+                // the API (no undo keystrokes, no registry corruption).
+                try { newBlock.dispose(); } catch (_) { }
+                throw e;
+            }
+
+            engine.blocksById.set(newBlock.id, newBlock);
+            const svgRoot = newBlock.getSvgRoot ? newBlock.getSvgRoot() : null;
+            if (svgRoot) svgRoot.dataset.llmId = newBlock.id; // keep legacy DOM lookups working
+            return newBlock.id;
         },
         _spawnPhysicalImpl: async function (catPath, blockKey, parentId, positionType) {
             // 1. SNAPSHOT
@@ -448,21 +644,10 @@
             // Prefer the canonical fragment fingerprint when we have one — it
             // resolves to a unique flyout block in one exact match. Fall back
             // to Msg-derived search phrase only for keys not in the table.
-            const fragments = this.BLOCK_FRAGMENTS[blockKey];
-            let searchCanonical, logLabel;
-            if (Array.isArray(fragments) && fragments.length > 0) {
-                searchCanonical = fragments;
-                logLabel = JSON.stringify(fragments);
-            } else {
-                let rawLabel = this._getLabel(blockKey);
-                let searchPhrase = rawLabel.split(/%[0-9]/)[0].trim();
-                if (!searchPhrase) searchPhrase = rawLabel.replace(/%[0-9]/g, ' ').replace(/\s+/g, ' ').trim();
-                searchCanonical = searchPhrase;
-                logLabel = `'${searchPhrase}'`;
-            }
+            const { canonical: searchCanonical, logLabel } = this._searchCanonicalFor(blockKey);
             console.log(`🔎 Looking for ${logLabel} (block key: '${blockKey}').`);
 
-            let blockNode = this._huntForBlock(searchCanonical);
+            let blockNode = this._huntForBlock(searchCanonical, blockKey);
             console.log(blockNode
                 ? `✅ Found ${logLabel} in the flyout.`
                 : `⚠️ Could not find ${logLabel} in the flyout on the first try.`);
@@ -476,7 +661,7 @@
                 const lastCatLabel = this._getLabel(lastCatKey) || lastCatKey;
                 console.warn(`🔁 Retrying by reopening the category '${lastCatLabel}' (key '${lastCatKey}').`);
                 await this._openCategoryTab(lastCatLabel, true); // Force Click
-                blockNode = this._huntForBlock(searchCanonical);
+                blockNode = this._huntForBlock(searchCanonical, blockKey);
             }
 
             // RUNTIME DISCOVERY FALLBACK — if BLOCK_FRAGMENTS doesn't match
@@ -519,12 +704,13 @@
             // because the workspace can scroll between attempts (flyout reopens
             // after undo etc.). Pre-computed absolute coords go stale fast.
             const dropStrategies = [];
-            let parentNode = null, pRect = null;
+            let parentNode = null, pRect = null, pFull = null;
             if (parentId) {
-                const initialParentState = await this._refreshParentVisualState(parentId, "initial parent resolution");
-                parentNode = initialParentState.parentNode;
-                pRect = initialParentState.rect;
+                parentNode = document.querySelector(`g[data-llm-id="${parentId}"]`);
+                if (!parentNode) throw new Error(`Parent DOM node ${parentId} missing.`);
+                pRect = this._getParentVisualRect(parentNode);
                 const fullRect = parentNode.getBoundingClientRect();
+                pFull = fullRect;
                 console.log(`   parent visual bbox (path-based): x=${Math.round(pRect.left)} y=${Math.round(pRect.top)} w=${Math.round(pRect.width)} h=${Math.round(pRect.height)}`);
                 if (Math.abs(fullRect.height - pRect.height) > 10) {
                     console.log(`   (full <g> bbox was h=${Math.round(fullRect.height)} — descendants/orphans inflated it; using path-based instead)`);
@@ -607,10 +793,6 @@
                     dropStrategies.push((cur) => [
                         { x: cur.left + 20, y: cur.bottom + 10, label: "just below parent" },
                         { x: cur.left + 20, y: cur.bottom + 20, label: "lower below parent" },
-                        { x: cur.left + 28, y: cur.bottom + 10, label: "right of primary below parent" },
-                        { x: cur.left + 12, y: cur.bottom + 10, label: "left of primary below parent" },
-                        { x: cur.left + 20, y: cur.bottom + 4, label: "closer to parent bottom edge" },
-                        { x: cur.left + 20, y: cur.bottom + 28, label: "further below parent" },
                     ]);
                 }
             } else {
@@ -670,7 +852,7 @@
                         await this._openCategoryTab(leafLabel, true);
                         await this._wait(600);
                     }
-                    const refreshed = this._huntForBlock(searchCanonical);
+                    const refreshed = this._huntForBlock(searchCanonical, blockKey);
                     if (!refreshed) {
                         console.warn(`   could not re-find flyout block after category reopen — aborting retry loop.`);
                         break;
@@ -680,10 +862,9 @@
                 }
                 // Refresh pRect AGAIN here (after any category reopen above)
                 // so the strategy gets the CURRENT parent position.
-                if (parentId) {
-                    const liveParentState = await this._refreshParentVisualState(parentId, `before drag attempt ${attempt}`);
-                    parentNode = liveParentState.parentNode;
-                    pRect = liveParentState.rect;
+                if (parentNode) {
+                    pRect = this._getParentVisualRect(parentNode);
+                    pFull = parentNode.getBoundingClientRect();
                 }
                 // Compute this attempt's target from the lazy generator using
                 // the current pRect. If the generator returns null (e.g.
@@ -714,7 +895,26 @@
                 for (let t = 0; t < 4 && !cand_newBlock; t++) {
                     if (t > 0) await this._wait(250);
                     postScan = this._scanInternal();
-                    cand_newBlock = postScan.find(b => !preIds.has(b.id));
+                    // A dropped block arrives with shadow children that are
+                    // ALSO new draggables — picking one of those as "the new
+                    // block" poisons every later input targeting this logical
+                    // id (a shadow has one field, so all values pile into it).
+                    // Among the new nodes keep only the OUTERMOST: the one not
+                    // contained inside another new node's <g>.
+                    const fresh = postScan.filter(b => !preIds.has(b.id));
+                    if (fresh.length <= 1) {
+                        cand_newBlock = fresh[0] || null;
+                    } else {
+                        const doms = new Map(fresh.map(b => [b.id, document.querySelector(`g[data-llm-id="${b.id}"]`)]));
+                        const outer = fresh.find(b => {
+                            const d = doms.get(b.id);
+                            return d && !fresh.some(o => o.id !== b.id && doms.get(o.id) && doms.get(o.id).contains(d));
+                        });
+                        cand_newBlock = outer || fresh[0];
+                        if (outer && outer.id !== fresh[0].id) {
+                            console.log(`   diff found ${fresh.length} new node(s); picked OUTERMOST '${outer.id}' (first-in-scan was a descendant).`);
+                        }
+                    }
                 }
                 if (!cand_newBlock) {
                     console.warn(`   no new block detected with this drop; retrying with next candidate if any.`);
@@ -747,42 +947,48 @@
                 // and miss the growth signal entirely.
                 await this._wait(500);
                 const newDom = document.querySelector(`g[data-llm-id="${cand_newBlock.id}"]`);
-                const pRectAfter = parentNode ? this._getParentVisualRect(parentNode) : null;
-                const cRect = newDom ? newDom.getBoundingClientRect() : null;
                 let attachmentOk = true;
                 let attachmentNote = "";
-                if (parentId && parentNode && newDom && pRectAfter && cRect) {
-                    const dHeight = pRectAfter.height - pRect.height;
-                    const dWidth  = pRectAfter.right - pRect.right;
-                    // STRICT verification — only accept the snap when the parent's
-                    // own path geometry has grown to wrap the new child. Free-
-                    // floating drops produce ZERO growth even when the child
-                    // happens to land touching the parent's bottom edge.
-                    // Previously a position-based fallback let those false
-                    // positives through, which is why the user kept seeing the
-                    // block placed BELOW the cap with verification reporting
-                    // "attached" and skipping the retry.
-                    const parentGrew = dHeight >= 2 || dWidth >= 2;
-                    if (positionType === "nested") {
-                        attachmentOk = parentGrew;
-                        attachmentNote = attachmentOk
-                            ? `✅ attached — parent path grew (Δh=${Math.round(dHeight)}, Δw=${Math.round(dWidth)})`
-                            : `⚠️ NOT attached — parent path unchanged (Δh=${Math.round(dHeight)}). Child at top=${Math.round(cRect.top)} vs parentOrigBottom=${Math.round(pRect.bottom)}. Will undo & retry.`;
-                    } else if (positionType === "next") {
-                        // Prefer the strict growth signal, but on this RoboPhone
-                        // build some valid "next" snaps do not expand the parent
-                        // path reliably. Fall back to a tight visual-chain check:
-                        // the child should land immediately under the parent and
-                        // remain roughly left-aligned with it.
-                        const closeBelow = cRect.top <= pRect.bottom + 14 && cRect.top >= pRect.bottom - 18;
-                        const leftAligned = Math.abs(cRect.left - pRect.left) <= 18;
-                        const visuallyChained = closeBelow && leftAligned;
-                        attachmentOk = parentGrew || visuallyChained;
-                        attachmentNote = attachmentOk
-                            ? (parentGrew
-                                ? `✅ child is chained next to parent (Δh=${Math.round(dHeight)})`
-                                : `✅ child accepted as visually chained next to parent (Δh=${Math.round(dHeight)}, child.top=${Math.round(cRect.top)}, parent.bottom=${Math.round(pRect.bottom)}, Δleft=${Math.round(cRect.left - pRect.left)})`)
-                            : `⚠️ child NOT chained — parent path unchanged (Δh=${Math.round(dHeight)}), child.top=${Math.round(cRect.top)}, parent.bottom=${Math.round(pRect.bottom)}, Δleft=${Math.round(cRect.left - pRect.left)}. Will undo & retry.`;
+                if (parentId && parentNode && newDom) {
+                    // 1) GROUND TRUTH — ask the Blockly model. child.getParent()
+                    //    walked up to the intended parent is definitive and has
+                    //    none of the geometry false-negatives below.
+                    const modelVerdict = window.BlocklyApiEngine
+                        ? window.BlocklyApiEngine.verifyAttachedDom(newDom, parentNode)
+                        : null;
+                    if (modelVerdict === true || modelVerdict === false) {
+                        attachmentOk = modelVerdict;
+                        attachmentNote = modelVerdict
+                            ? `✅ attached — Blockly model confirms the child is linked under the parent`
+                            : `⚠️ NOT attached — Blockly model shows no parent link. Will undo & retry.`;
+                    } else {
+                        // 2) GEOMETRY FALLBACK (model unavailable on this build).
+                        //    nested: the parent's own path (the C-shape) grows to
+                        //    wrap the child — path-rect growth is the signal.
+                        //    next: the parent's own path NEVER grows (the chained
+                        //    child renders inside the parent's <g> but outside its
+                        //    path outline) — the old path-based check here could
+                        //    never pass and undid CORRECT snaps. Use the full-<g>
+                        //    subtree rect instead, which does grow on a next-snap.
+                        const pRectAfter = this._getParentVisualRect(parentNode);
+                        const pFullAfter = parentNode.getBoundingClientRect();
+                        const dHeight = pRectAfter.height - pRect.height;
+                        const dWidth = pRectAfter.right - pRect.right;
+                        const dFullH = pFull ? (pFullAfter.height - pFull.height) : 0;
+                        if (positionType === "nested") {
+                            // A value child replacing a same-size shadow can grow
+                            // the path by ~0px — accept subtree growth as well so
+                            // correct snaps aren't undone as false negatives.
+                            attachmentOk = dHeight >= 2 || dWidth >= 2 || dFullH >= 2;
+                            attachmentNote = attachmentOk
+                                ? `✅ attached — parent grew (Δpath h=${Math.round(dHeight)}, Δpath w=${Math.round(dWidth)}, Δfull h=${Math.round(dFullH)})`
+                                : `⚠️ NOT attached — parent unchanged (Δpath h=${Math.round(dHeight)}, Δfull h=${Math.round(dFullH)}). Will undo & retry.`;
+                        } else if (positionType === "next") {
+                            attachmentOk = dFullH >= 2;
+                            attachmentNote = attachmentOk
+                                ? `✅ child chained — parent subtree grew (Δfull h=${Math.round(dFullH)})`
+                                : `⚠️ child NOT chained — parent subtree unchanged (Δfull h=${Math.round(dFullH)}). Will undo & retry.`;
+                        }
                     }
                 }
                 console.log(`   ${attachmentNote || "no attachment check"}; new block id=${cand_newBlock.id}.`);
@@ -810,7 +1016,7 @@
                     await this._openCategoryTab(leafLabel, true);
                     await this._wait(500);
                 }
-                const refreshed = this._huntForBlock(searchCanonical);
+                const refreshed = this._huntForBlock(searchCanonical, blockKey);
                 if (refreshed) blockNode = refreshed;
                 // Re-snapshot preIds so the next attempt's diff is correct.
                 const recheck = this._scanInternal();
@@ -820,11 +1026,10 @@
                 // to its pre-drop size. We need an accurate baseline for the
                 // next attempt's grew-vs-unchanged check. Use path-based
                 // geometry so orphan free-floats don't inflate the size.
-                if (parentId) {
-                    const recoveredParentState = await this._refreshParentVisualState(parentId, "after undo+flyout-reopen");
-                    parentNode = recoveredParentState.parentNode;
-                    pRect = recoveredParentState.rect;
-                    console.log(`   parent visual bbox AFTER undo+flyout-reopen: x=${Math.round(pRect.left)} y=${Math.round(pRect.top)} w=${Math.round(pRect.width)} h=${Math.round(pRect.height)}`);
+                if (parentNode) {
+                    pRect = this._getParentVisualRect(parentNode);
+                    pFull = parentNode.getBoundingClientRect();
+                    console.log(`   parent visual bbox AFTER undo+flyout-reopen: h=${Math.round(pRect.height)} (full h=${Math.round(pFull.height)})`);
                 }
             }
 
@@ -844,155 +1049,248 @@
             }
             value = String(value);
 
+            // PREFERRED PATH: set the field through Blockly's own field API.
+            // Handles text, number, dropdown, CHECKBOX and VARIABLE fields
+            // (the DOM emulation below supports only the first three), and
+            // keeps a per-block cursor so successive 'input' commands target
+            // successive fields instead of overwriting the first one forever.
+            const engine = window.BlocklyApiEngine;
+            if (engine && engine.available()) {
+                const apiBlock = this._resolveWorkspaceBlock(blockId);
+                if (apiBlock) {
+                    const res = engine.applyInput(apiBlock, value, blockId);
+                    if (res.ok) {
+                        console.log(`⌨️ [API] set field '${res.fieldName}' (${res.kind}) = "${value}" on block '${apiBlock.type}'.`);
+                        return;
+                    }
+                    // Do NOT fall back to DOM widget emulation here. The legacy
+                    // path can only ever reach the block's FIRST field, so a
+                    // silent fallback dumps every value into that one field
+                    // (variable dropdown / 'from' input) and corrupts the block.
+                    // Surface the real reason instead.
+                    throw new Error(`Field input failed on block '${apiBlock.type}': ${res.why || "unknown"} (value="${value}")`);
+                }
+                // Workspace exists but the runtime id can't be mapped to a model
+                // block — the DOM fallback would corrupt fields (first-field
+                // dumping), so fail loudly instead.
+                throw new Error(`Input target '${blockId}' could not be resolved to a workspace block (value="${value}"). The spawn that created it may have failed silently — check the spawn logs above.`);
+            }
+
             const block = document.querySelector(`g[data-llm-id="${blockId}"]`);
             if (!block) throw new Error("Block element missing.");
-
-            // 1. Find Editable Field (Text OR Dropdown)
-            const allGroups = Array.from(block.querySelectorAll('g'));
-            let targetGroup = null;
-            const blockKey = block.dataset.llmBlockKey || "";
-
-            if (blockKey === "CONTROLS_FOR") {
-                const editableGroups = allGroups.filter(g => {
-                    if (!g.classList.contains('blocklyEditableText')) return false;
-                    const rect = g.getBoundingClientRect();
-                    return rect.width > 0 && rect.height > 0;
-                }).sort((a, b) => {
-                    const ar = a.getBoundingClientRect();
-                    const br = b.getBoundingClientRect();
-                    const dy = Math.abs(ar.top - br.top);
-                    if (dy > 8) return ar.top - br.top;
-                    return ar.left - br.left;
-                });
-                if (editableGroups.length > 0) {
-                    const rawCursor = Number.parseInt(block.dataset.llmInputCursor || "0", 10);
-                    const cursor = Number.isFinite(rawCursor) ? rawCursor : 0;
-                    const boundedIndex = Math.min(cursor, editableGroups.length - 1);
-                    targetGroup = editableGroups[boundedIndex];
-                    block.dataset.llmInputCursor = String(Math.min(cursor + 1, editableGroups.length));
-                    const targetRect = targetGroup.getBoundingClientRect();
-                    console.log(`🎯 CONTROLS_FOR field cursor ${cursor}/${editableGroups.length} -> targeting editable field #${boundedIndex + 1} at x=${Math.round(targetRect.left)} y=${Math.round(targetRect.top)}`);
-                }
-            }
-
-            if (!targetGroup) {
-                targetGroup = allGroups.find(g => g.classList.contains('blocklyEditableText'));
-            }
-
-            // Fallback: Group with text but NO rect (often dropdown labels) or correct structure
-            if (!targetGroup) {
-                targetGroup = allGroups.find(g => {
-                    // Standard Dropdown often has text and an internal image (arrow) or just text
-                    const txt = g.querySelector('text');
-                    const img = g.querySelector('image');
-                    // We allow image now because Dropdowns often contain arrows or icons
-                    return txt && (g.classList.contains('blocklyEditableText') || g.getAttribute('role') === 'button' || !g.getAttribute('role'));
-                });
-            }
-            if (!targetGroup) throw new Error("Could not locate editable field.");
-
-            // 2. Click to Open Widget
-            const fieldRect = targetGroup.getBoundingClientRect();
-            const clickX = fieldRect.left + (fieldRect.width / 2);
-            const clickY = fieldRect.top + (fieldRect.height / 2);
-
-            console.log(`🖱️ Clicking field at ${Math.round(clickX)},${Math.round(clickY)}`);
-            this._fire('pointerdown', clickX, clickY, targetGroup);
-            this._fire('pointerup', clickX, clickY, targetGroup);
-            await this._wait(600);
-
-            // 3. Detect Widget Type
-            const inputWidget = document.querySelector('.blocklyHtmlInput');
-            const dropdownWidget = document.querySelector('.blocklyDropDownContent, .blocklyDropdownMenu');
-
-            if (inputWidget) {
-                // --- CASE A: TEXT INPUT ---
-                console.log(`⌨️ Typing "${value}" into text field...`);
-                inputWidget.value = value;
-                inputWidget.dispatchEvent(new Event('input', { bubbles: true }));
-                await this._wait(100);
-                inputWidget.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
-                await this._wait(300);
-
-            } else if (dropdownWidget) {
-                // --- CASE B: DROPDOWN MENU ---
-                console.log(`🔽 Selecting "${value}" from dropdown...`);
-
-                // On RoboPhone, the visible menu items are sometimes rendered
-                // outside the nominal dropdown container. Query visible menu
-                // items globally instead of relying on .blocklyDropDownContent
-                // being the true parent of the options.
-                const items = this._getVisibleDropdownItems();
-                let targetItem = items.find(item => {
-                    const textContent = (item.textContent || "").toLowerCase().trim();
-                    return textContent === value.toLowerCase().trim();
-                });
-
-                // If not found by text, try Image Alt Text (e.g. for icons)
-                if (!targetItem) {
-                    targetItem = items.find(item => {
-                        const img = item.querySelector('img');
-                        return img && img.alt && img.alt.toLowerCase() === value.toLowerCase();
-                    });
-                }
-
-                // Icon/palette fallback: derive semantic value from the image
-                // filename, e.g. /static/images/red.png -> "red".
-                if (!targetItem) {
-                    targetItem = items.find(item => {
-                        const img = item.querySelector('img');
-                        if (!img || !img.src) return false;
-                        const normalized = this._normalizePaletteValueFromImageSource(img.src);
-                        if (!normalized) return false;
-                        if (normalized === "plug") return false; // launcher / special-case, not a normal color value
-                        return normalized === value.toLowerCase().trim();
-                    });
-                }
-
-                if (targetItem) {
-                    targetItem.click();
-                    await this._wait(300);
-                } else {
-                    const available = items.map(i => {
-                        const text = (i.textContent || "").trim();
-                        const img = i.querySelector('img');
-                        const normalized = img?.src ? this._normalizePaletteValueFromImageSource(img.src) : "";
-                        return normalized || text;
-                    }).join(", ");
-                    console.warn(`⚠️ Option '${value}' not found in dropdown. Available: ${available}`);
-                    // Close menu by clicking elsewhere
-                    this._fire('pointerdown', 0, 0, document.body);
-                    this._fire('pointerup', 0, 0, document.body);
-                    throw new Error(`Dropdown option '${value}' not found.`);
-                }
-
-            } else {
-                throw new Error("Input widget failed to open (No Input or Dropdown detected).");
-            }
+            return await this._domFieldWrite(blockId, block, value);
         },
 
-        _getVisibleDropdownItems: function () {
-            return Array.from(document.querySelectorAll('.blocklyMenuItem, .goog-menuitem'))
-                .filter(item => {
-                    const rect = item.getBoundingClientRect();
-                    return rect.width > 0 && rect.height > 0;
-                });
-        },
+        // ------------------------------------------------------------------
+        // DOM FIELD ENGINE — precise field targeting without the workspace
+        // object. Verified live on the Robo-Phone build (where the real
+        // Blockly is sealed inside the webpack bundle and window.Blockly only
+        // exposes Msg, so the API engine can never activate there).
+        //
+        // Key facts discovered on that build:
+        //  - controls_for's from/to/by are EDITABLE FIELDS on the block, not
+        //    shadow blocks. All four fields share g.blocklyEditableText.
+        //  - DOM order ≠ visual order (the variable <g> renders LAST in DOM
+        //    while 'from' is first) — which is why "first editable field"
+        //    logic dumped every value into 'from'. SORT BY VISUAL POSITION.
+        //  - Variable dropdowns list existing vars + "Rename variable...";
+        //    renaming via the native window.prompt (override it, return the
+        //    desired name) sets a fresh variable name reliably.
+        //  - Number fields are <input type=text> + validator: committing a
+        //    non-numeric silently reverts — detectable by re-reading the
+        //    field text, which lets us ROUTE a declined value to the next slot.
+        // ------------------------------------------------------------------
+        _domFieldWrite: async function (blockId, root, value) {
+            if (!this._domSlotsUsed) this._domSlotsUsed = new Map();
+            let used = this._domSlotsUsed.get(blockId);
+            if (!used) { used = new Set(); this._domSlotsUsed.set(blockId, used); }
 
-        _normalizePaletteValueFromImageSource: function (src) {
-            if (!src || typeof src !== "string") return null;
-            const match = src.toLowerCase().match(/\/([^\/?#]+)\.(png|svg|jpg|jpeg|gif)(?:[?#].*)?$/);
-            if (!match) return null;
-            const base = match[1];
-            const paletteMap = {
-                red: "red",
-                yellow: "yellow",
-                green: "green",
-                blue: "blue",
-                plug: "plug",
+            const collect = () => {
+                const owned = this._ownedRuntimeIds || new Set();
+                const groups = Array.from(root.querySelectorAll('g.blocklyEditableText')).filter(g => {
+                    // Exclude fields living on a DIFFERENT spawned block nested
+                    // inside this one (they're addressed by their own logical id).
+                    // Shadows/presets stay included — they render as part of
+                    // this block's row.
+                    const ownerDraggable = g.closest('g.blocklyDraggable');
+                    if (ownerDraggable && ownerDraggable !== root) {
+                        const oid = ownerDraggable.dataset ? ownerDraggable.dataset.llmId : null;
+                        if (oid && oid !== blockId && owned.has(oid)) return false;
+                    }
+                    const r = g.getBoundingClientRect();
+                    return r.width > 0 && r.height > 0;
+                });
+                // Visual order: row by row (y bucket), then left-to-right.
+                groups.sort((a, z) => {
+                    const ra = a.getBoundingClientRect(), rz = z.getBoundingClientRect();
+                    return (Math.round(ra.top / 24) - Math.round(rz.top / 24)) || (ra.left - rz.left);
+                });
+                return groups;
             };
-            return paletteMap[base] || base || null;
+
+            let groups = collect();
+            if (groups.length === 0) {
+                throw new Error(`Block '${blockId}' has no editable fields (value sockets need a nested spawn, not an input).`);
+            }
+            console.log(`🎰 [DOM] input "${value}" on '${blockId}': ${groups.length} field slot(s) [${groups.map((g, i) => `${i}:'${g.textContent.trim()}'${used.has(i) ? "✔" : ""}`).join(", ")}]`);
+
+            const unused = groups.map((_, i) => i).filter(i => !used.has(i));
+            const order = unused.length ? unused : [groups.length - 1]; // all written: re-target last
+            let lastWhy = "no editable field accepted the value";
+            for (const idx of order) {
+                groups = collect(); // re-grab — committing a value shifts geometry
+                const g = groups[idx];
+                if (!g) continue;
+                const outcome = await this._domTrySlot(g, value);
+                if (outcome.ok) {
+                    used.add(idx);
+                    console.log(`⌨️ [DOM] wrote slot #${idx} (${outcome.kind}) = "${value}" on '${blockId}'.`);
+                    return;
+                }
+                lastWhy = outcome.why || lastWhy;
+                console.log(`   [DOM] slot #${idx} declined "${value}": ${outcome.why}`);
+            }
+            throw new Error(`No field on block '${blockId}' accepted value "${value}". Last reason: ${lastWhy}`);
         },
+
+        // Try to write `value` into one specific field <g>. Returns {ok, kind?, why?}.
+        _domTrySlot: async function (g, value) {
+            const isNumeric = value.trim() !== "" && !isNaN(Number(value));
+            const before = g.textContent.trim();
+            const r = g.getBoundingClientRect();
+            const x = r.left + r.width / 2, y = r.top + r.height / 2;
+            this._fire('pointerdown', x, y, g);
+            await this._wait(80);
+            this._fire('pointerup', x, y, g);
+            await this._wait(400);
+
+            // --- dropdown menu? ---
+            const dropDiv = document.querySelector('.blocklyDropDownDiv');
+            const dropVisible = dropDiv && getComputedStyle(dropDiv).display !== 'none' && dropDiv.getBoundingClientRect().height > 5;
+            if (dropVisible) {
+                const items = Array.from(dropDiv.querySelectorAll('.blocklyMenuItem, .goog-menuitem, [role="menuitem"], [role="menuitemcheckbox"], [role="option"]'));
+                const want = value.trim().toLowerCase();
+                const norm = (s) => s.replace(/ /g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+                let match = items.find(m => norm(m.textContent) === want);
+                if (!match) {
+                    match = items.find(m => {
+                        const img = m.querySelector('img');
+                        if (!img) return false;
+                        if (img.alt && img.alt.toLowerCase() === want) return true;
+                        // Color/icon dropdowns (RESET_GRAPH, GRAPH, LEDs...):
+                        // the option's meaning lives in the image FILENAME,
+                        // e.g. /static/images/red.png — the alt is just "*".
+                        const src = (img.getAttribute('src') || '').toLowerCase();
+                        const base = src.split('/').pop().split('.')[0];
+                        return base === want || (base.length > 2 && want.indexOf(base) >= 0) || (want.length > 2 && base.indexOf(want) >= 0);
+                    });
+                }
+                if (!match) {
+                    match = items.find(m => norm(m.textContent).includes(want) && !/rename|delete|new variable/i.test(m.textContent));
+                }
+                if (match) {
+                    this._clickMenuItem(match);
+                    await this._wait(400);
+                    return { ok: true, kind: 'dropdown' };
+                }
+                // Variable dropdown + non-numeric name → rename the variable
+                // to the requested name via the native prompt (overridden).
+                const renameItem = items.find(m => /rename/i.test(m.textContent));
+                if (renameItem && !isNumeric) {
+                    const origPrompt = window.prompt;
+                    window.prompt = () => value;
+                    try {
+                        this._clickMenuItem(renameItem);
+                        await this._wait(800);
+                        // Custom HTML dialog fallback (SweetAlert / modal builds)
+                        const dlgInput = document.querySelector('.swal2-popup input, .modal input[type="text"], dialog input');
+                        if (dlgInput) {
+                            dlgInput.value = value;
+                            dlgInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            const okBtn = document.querySelector('.swal2-confirm, .modal .btn-primary, dialog button');
+                            if (okBtn) okBtn.click();
+                            await this._wait(500);
+                        }
+                    } finally {
+                        window.prompt = origPrompt;
+                    }
+                    return { ok: true, kind: 'variable-rename' };
+                }
+                // No match — close the menu and decline this slot.
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }));
+                await this._wait(250);
+                const optionLabel = (m) => {
+                    const t = m.textContent.replace(/\s+/g, ' ').trim();
+                    if (t) return t;
+                    const img = m.querySelector('img');
+                    if (img) return (img.getAttribute('src') || '').split('/').pop() || '[image]';
+                    return '[blank]';
+                };
+                return { ok: false, why: `dropdown has no option '${value}' (options: ${items.slice(0, 10).map(optionLabel).join(", ")})` };
+            }
+
+            // --- text input? ---
+            const inp = document.querySelector('input.blocklyHtmlInput') || document.querySelector('.blocklyWidgetDiv input');
+            if (inp) {
+                inp.value = value;
+                inp.dispatchEvent(new Event('input', { bubbles: true }));
+                await this._wait(120);
+                inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                await this._wait(400);
+                const after = g.isConnected ? g.textContent.trim() : "";
+                const squash = (s) => s.replace(/ /g, ' ').replace(/\s+/g, '').toLowerCase();
+                if (squash(after) === squash(value)) return { ok: true, kind: 'text' };
+                if (isNumeric && after !== "" && Number(after) === Number(value)) return { ok: true, kind: 'text' };
+                // Validator reverted the commit (e.g. text into a number
+                // field): decline so the value routes to the next slot.
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }));
+                await this._wait(150);
+                return { ok: false, why: `field shows '${after}' after commit (validator rejected '${value}')` };
+            }
+
+            // --- no widget: checkbox fields toggle in place on click ---
+            // The ✓ text node is ALWAYS in the DOM; checked state is whether
+            // it's visible (unchecked hides it / zero-width). textContent is
+            // useless for state detection.
+            const checkboxText = g.querySelector('text.blocklyCheckbox');
+            if (checkboxText) {
+                const isChecked = () => {
+                    const cr = checkboxText.getBoundingClientRect();
+                    return cr.width > 0 && getComputedStyle(checkboxText).display !== 'none';
+                };
+                const boolWords = { "true": 1, "1": 1, "yes": 1, "on": 1, "checked": 1, "false": 0, "0": 0, "no": 0, "off": 0, "unchecked": 0 };
+                const want = boolWords[value.trim().toLowerCase()];
+                if (want === undefined) {
+                    // Not a boolean value — undo the toggle our probe click caused.
+                    this._fire('pointerdown', x, y, g);
+                    await this._wait(60);
+                    this._fire('pointerup', x, y, g);
+                    await this._wait(250);
+                    return { ok: false, why: `checkbox field can't take non-boolean value '${value}'` };
+                }
+                let cur = isChecked();
+                if (cur !== !!want) {
+                    this._fire('pointerdown', x, y, g);
+                    await this._wait(80);
+                    this._fire('pointerup', x, y, g);
+                    await this._wait(300);
+                    cur = isChecked();
+                }
+                return (cur === !!want)
+                    ? { ok: true, kind: 'checkbox' }
+                    : { ok: false, why: 'checkbox did not reach the desired state' };
+            }
+            return { ok: false, why: "no widget opened on click" };
+        },
+
+        _clickMenuItem: function (el) {
+            const r = el.getBoundingClientRect();
+            const x = r.left + r.width / 2, y = r.top + r.height / 2;
+            this._fire('pointerdown', x, y, el);
+            this._fire('pointerup', x, y, el);
+            if (typeof el.click === 'function') el.click();
+        },
+
 
         // --- HELPERS ---
 
@@ -1030,13 +1328,18 @@
                 }
 
                 if (isLeaf) {
-                    // On RoboPhone, selected=true is not enough to trust that
-                    // the flyout is fresh and draggable. Always refresh the
-                    // leaf category so the visible flyout blocks are rebuilt
-                    // before we try to drag.
-                    console.log(`   clicking leaf '${catLabel}'.`);
-                    await this._openCategoryTab(catLabel, true);
-                    await this._wait(700);
+                    // For the leaf: we need the flyout to actually show its blocks.
+                    // If the leaf is already selected AND the flyout has content
+                    // matching this category, skip the click (avoids toggle-off).
+                    // Otherwise click. Then verify.
+                    const after = this._categoryRowState(catLabel);
+                    if (!after.selected) {
+                        console.log(`   clicking leaf '${catLabel}'.`);
+                        await this._openCategoryTab(catLabel, true);
+                        await this._wait(700);
+                    } else {
+                        console.log(`   leaf '${catLabel}' already selected — skipping click to avoid toggle-off.`);
+                    }
                 } else {
                     // For parents (non-leaf): we just need them EXPANDED so
                     // their children are visible. Don't toggle if already
@@ -1126,18 +1429,20 @@
             await this._wait(600);
         },
 
-        _huntForBlock: function (canonical) {
+        _huntForBlock: function (canonical, blockKey) {
             // Dispatch on input type:
             //   - array of fragments → exact set-match (preferred, deterministic)
             //   - single positional sentinel like "__POSITIONAL_0__" → ordinal pick
             //   - plain string → legacy word-peel + substring fallback
+            // blockKey (optional) enables type-aware tie-breaking when several
+            // flyout blocks match the fragments equally well.
             if (Array.isArray(canonical)) {
                 if (canonical.length === 1 && /^__POSITIONAL_\d+__$/.test(canonical[0])) {
                     const idx = parseInt(canonical[0].match(/__POSITIONAL_(\d+)__/)[1], 10);
                     const visible = this._visibleFlyoutBlocks();
                     return visible[idx] || null;
                 }
-                return this._findFlyoutBlockByFragmentSet(canonical);
+                return this._findFlyoutBlockByFragmentSet(canonical, blockKey);
             }
 
             const searchPhrase = canonical;
@@ -1295,39 +1600,76 @@
         // deterministic and never cross-matches into a wrong-category block,
         // because the visibility filter already restricts us to the active
         // category and exact-match prevents substring drift.
-        _findFlyoutBlockByFragmentSet: function (requiredFragments) {
+        _findFlyoutBlockByFragmentSet: function (requiredFragments, blockKey) {
             const visibleBlocks = this._visibleFlyoutBlocks();
             if (visibleBlocks.length === 0) return null;
             const reqLower = requiredFragments.map(f => String(f).toLowerCase());
             const normalize = s => s.replace(/\u00A0/g, " ").replace(/\s+/g, ' ').trim().toLowerCase();
             console.log(`\uD83D\uDDC2\uFE0F Set-match against ${visibleBlocks.length} visible flyout block(s) for fragments: ${JSON.stringify(requiredFragments)}`);
-
-            // Variables flyout special-case: prefer the lone getter block
-            // whose full visible text is just the variable name. This avoids
-            // misclassifying statement blocks like "change x by" as VAR_GET.
-            if (reqLower.length === 1 && reqLower[0] === "x") {
-                const loneGetter = visibleBlocks.find(b => {
-                    const fragments = Array.from(b.querySelectorAll('text.blocklyText'))
-                        .map(t => normalize(t.textContent))
-                        .filter(Boolean);
-                    return fragments.length === 1 && fragments[0] === "x";
-                });
-                if (loneGetter) return loneGetter;
-            }
-
-            for (const b of visibleBlocks) {
-                const fragments = Array.from(b.querySelectorAll('text.blocklyText')).map(t => normalize(t.textContent));
+            // TIERED MATCHING. Tier 0: every fragment is an EXACT member of the
+            // block's text-node set (the documented contract). Tier 1: every
+            // fragment is a substring of some single text node. Tier 2: every
+            // fragment is a substring of the space-joined text. Lower tier wins.
+            // Within a tier the block with the FEWEST text fragments wins \u2014 the
+            // most specific match. This fixes e.g. VAR_GET ["x"] resolving to
+            // the 3-fragment "change x by" block (which also contains an exact
+            // "x") instead of the lone 1-fragment "x" getter, and keeps
+            // CONTROLS_IF ["if","do"] picking the basic if (2 fragments) over
+            // the if/else variant (3 fragments).
+            const candidates = [];
+            visibleBlocks.forEach((b, domIdx) => {
+                const fragments = Array.from(b.querySelectorAll('text.blocklyText')).map(t => normalize(t.textContent)).filter(Boolean);
                 const fragmentSet = new Set(fragments);
                 const joined = fragments.join(" ");
-                if (reqLower.every(f => fragmentSet.has(f) || fragments.some(t => t.includes(f)) || joined.includes(f))) {
-                    return b;
+                let tier;
+                if (reqLower.every(f => fragmentSet.has(f))) tier = 0;
+                else if (reqLower.every(f => fragments.some(t => t.includes(f)))) tier = 1;
+                else if (reqLower.every(f => joined.includes(f))) tier = 2;
+                else return;
+                candidates.push({ b, tier, fragCount: fragments.length, domIdx, fragments });
+            });
+            if (candidates.length === 0) {
+                console.warn(`No fragment-set match for ${JSON.stringify(requiredFragments)}. Visible flyout fragments: ${visibleBlocks.map(b => {
+                    const fragments = Array.from(b.querySelectorAll('text.blocklyText')).map(t => normalize(t.textContent)).filter(Boolean);
+                    return `[${fragments.join(" | ")}]`;
+                }).join(" ; ")}`);
+                return null;
+            }
+            candidates.sort((a, z) => (a.tier - z.tier) || (a.fragCount - z.fragCount) || (a.domIdx - z.domIdx));
+            let best = candidates[0];
+            const rivals = candidates.filter(c => c !== best && c.tier === best.tier && c.fragCount === best.fragCount);
+            if (rivals.length > 0) {
+                // TYPE-AWARE TIE-BREAK: several flyout blocks can render the
+                // same text (e.g. the Variables category shows multiple bare
+                // "x" blocks \u2014 getter, toggle, ...). Resolve each candidate to
+                // its Blockly block via the API engine and score its TYPE
+                // against the Msg-key tokens: VAR_GET \u2192 ["var","get"] matches
+                // type "variables_get" (2) over "variables_toggle" (1).
+                const engine = window.BlocklyApiEngine;
+                if (blockKey && engine) {
+                    const keyTokens = String(blockKey).toLowerCase().split(/_+/).filter(Boolean);
+                    const typeScore = (cand) => {
+                        const fb = engine.resolveFlyoutBlock(cand.b);
+                        const type = (fb && fb.type) ? String(fb.type).toLowerCase() : "";
+                        if (!type) return -1;
+                        let s = 0;
+                        for (const tok of keyTokens) if (type.indexOf(tok) >= 0) s++;
+                        return s;
+                    };
+                    const pool = [best, ...rivals].map(c => ({ c, s: typeScore(c) }));
+                    pool.sort((a, z) => (z.s - a.s) || (a.c.domIdx - z.c.domIdx));
+                    if (pool[0].s > 0) {
+                        best = pool[0].c;
+                        console.log(`   tie-break by block type for '${blockKey}': scores ${pool.map(p => `[${p.c.fragments.join("|")}]=${p.s}`).join(", ")}.`);
+                    } else {
+                        console.warn(`\u26A0\uFE0F Ambiguous fragment match for ${JSON.stringify(requiredFragments)}: ${1 + rivals.length} equally-specific candidates and no type information; picking first in DOM order.`);
+                    }
+                } else {
+                    console.warn(`\u26A0\uFE0F Ambiguous fragment match for ${JSON.stringify(requiredFragments)}: ${1 + rivals.length} equally-specific candidates; picking first in DOM order. Consider adding a disambiguating fragment to BLOCK_FRAGMENTS.`);
                 }
             }
-            console.warn(`No fragment-set match for ${JSON.stringify(requiredFragments)}. Visible flyout fragments: ${visibleBlocks.map(b => {
-                const fragments = Array.from(b.querySelectorAll('text.blocklyText')).map(t => normalize(t.textContent)).filter(Boolean);
-                return `[${fragments.join(" | ")}]`;
-            }).join(" ; ")}`);
-            return null;
+            console.log(`   picked tier-${best.tier} match [${best.fragments.join(" | ")}] out of ${candidates.length} candidate(s).`);
+            return best.b;
         },
         // Live-fetch a block by reading the currently-visible flyout and
         // scoring each block against tokens derived from the Msg key. Used as
@@ -1386,30 +1728,6 @@
         // Removing the SVG node directly corrupts Blockly's internal block
         // registry (causes "Cannot read properties of null (reading 'id')"
         // from BlockSvg.select when the next click happens). Ctrl+Z lets
-        _refreshParentVisualState: async function (parentId, context) {
-            const label = context || "parent refresh";
-            for (let attempt = 1; attempt <= 4; attempt++) {
-                const candidateNode = document.querySelector(`g[data-llm-id="${parentId}"]`);
-                if (!candidateNode) {
-                    console.warn(`   parent DOM missing during ${label} (attempt ${attempt}/4).`);
-                    await this._wait(150);
-                    continue;
-                }
-                const rect = this._getParentVisualRect(candidateNode);
-                if (rect && rect.width > 0 && rect.height > 0) {
-                    return { parentNode: candidateNode, rect };
-                }
-                console.warn(`   parent visual rect invalid during ${label} (attempt ${attempt}/4): w=${Math.round(rect?.width || 0)} h=${Math.round(rect?.height || 0)}.`);
-                await this._wait(150);
-            }
-            const finalNode = document.querySelector(`g[data-llm-id="${parentId}"]`);
-            if (!finalNode) {
-                throw new Error(`Parent DOM node '${parentId}' missing during ${label}.`);
-            }
-            const finalRect = this._getParentVisualRect(finalNode);
-            throw new Error(`Parent visual rect invalid during ${label} (w=${Math.round(finalRect?.width || 0)}, h=${Math.round(finalRect?.height || 0)}).`);
-        },
-
         // Blockly clean up its own state.
         // Return the parent block's OWN visible bounding rect — only its
         // path outline, NOT its descendants or orphaned free-floats that
@@ -1557,5 +1875,5 @@
             console.log("🏁 Drag gesture complete.");
         }
     };
-    console.log("✅ Universal Blockly Agent V14 Loaded.");
+    console.log("✅ Universal Blockly Agent V15 Loaded (API-first; drag fallback armed).");
 })();

@@ -107,6 +107,7 @@ const BLOCK_CATEGORY_MAP = {
     TEXT_TRIM: "CATTEXT",
     TRANSLATE: "CATTEXT",
     RUN_LINK: "CATTEXT",
+    LISTS_CREATE_EMPTY: "CATLISTS",
     LISTS_CREATE_WITH: "CATLISTS",
     LISTS_REPEAT: "CATLISTS",
     LISTS_LENGTH: "CATLISTS",
@@ -219,7 +220,47 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .catch(err => sendResponse({ error: err.message }));
         return true;
     }
+    if (request.action === "RUN_DIRECT_SCRIPT") {
+        handleDirectScript(request.script, request.tabId)
+            .then(result => sendResponse(result))
+            .catch(err => sendResponse({ error: err.message }));
+        return true;
+    }
 });
+
+// Direct-run path for testing: same normalize + execute pipeline as the
+// Gemini flow, just without the LLM round-trip. Lets the popup's test button
+// exercise block placement deterministically.
+async function handleDirectScript(rawScript, requestTabId) {
+    if (!Array.isArray(rawScript) || rawScript.length === 0) {
+        throw new Error("Direct script is empty or not an array.");
+    }
+    const { script, dropped } = normalizeGeneratedScript(rawScript);
+    console.log(`[BlocklyAgent] DIRECT script: raw=${rawScript.length}, after normalize=${script.length}, dropped=${dropped.length}`);
+    console.log("📜 DIRECT SCRIPT (after normalize):\n", JSON.stringify(script, null, 2));
+    if (dropped.length) console.warn("[BlocklyAgent] Dropped during normalize:", dropped);
+    try {
+        const out = await executeOnPage("execute_blockly_script", { script }, requestTabId);
+        return {
+            status: "success",
+            actions: ["execute_blockly_script (direct test)"],
+            commandsEmitted: script.length,
+            blocksPlaced: (out && out.result) ? Number(out.result.spawnedCount || 0) : 0,
+            placementMode: (out && out.result) ? out.result.placementMode : undefined,
+            spawnStats: (out && out.result) ? out.result.spawnStats : undefined,
+            warnings: ((out && out.result && out.result.inputFailures) || []).map(f => `field input "${f.value}" on '${f.block}' failed: ${f.why}`)
+        };
+    } catch (execErr) {
+        const diag = {
+            rawCommandCount: rawScript.length,
+            afterNormalizeCount: script.length,
+            droppedCount: dropped.length,
+            droppedReasons: dropped.slice(0, 10).map(d => d.reason),
+        };
+        execErr.message += ` | diagnostics: ${JSON.stringify(diag)}`;
+        throw execErr;
+    }
+}
 
 // Cache the bundled manual so we read it from disk only once per service-worker
 // lifetime. Service workers may be torn down and respawned, in which case the
@@ -291,8 +332,18 @@ chrome.windows.onRemoved.addListener(async (windowId) => {
 // generateContent URL in this file is built from this constant.
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
 
+// Must match BlocklyAgent.VERSION in blockly_methods.js. Bump both together —
+// executeOnPage re-injects the MAIN-world scripts whenever the page's loaded
+// version differs (pages opened before an extension reload keep stale code).
+const EXPECTED_AGENT_VERSION = "15.8";
+
 async function handleGeminiFlow(userPrompt, apiKey, requestTabId) {
-    apiKey = "REMOVED_GEMINI_API_KEY";
+    // Use the key the popup sent — never override it. The previous hardcoded
+    // override silently ignored whatever the user typed in the popup field.
+    apiKey = String(apiKey || "").trim();
+    if (!apiKey) {
+        throw new Error("No Gemini API key provided. Paste a key in the popup and run again.");
+    }
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
     console.log(`[BlocklyAgent] POST ${url.replace(apiKey, "<key>")}`);
     const manual = await loadRoboPhoneManual();
@@ -340,22 +391,13 @@ SCRIPT RULES:
    - To put a value block into a value socket, use action='spawn' with parent set to the consumer block id and pos:'nested'. NEVER use action='input' with value set to a logical id — input only fills text fields and dropdowns, it cannot reference another block.
 8. For an 'input' command, the 'block' property MUST be a previously spawned logical id (e.g. 'msg1', 'graph1'). The 'value' is plain text or a dropdown option string. It must never be another logical id and never a field name like 'x', 'y', 'rate'.
 9. If you need to fill several fields on the same spawned block, emit multiple 'input' commands all referencing that same logical id, in field order.
-10. Do NOT invent optional style inputs. For blocks like LCD_MESSAGE and LCD_TEXT, only emit color/size inputs when the user explicitly asked for them or the task clearly requires them. If the user only asked to display text, emit only the text input.
-11. For CONTROLS_FOR, emit exactly four input commands in this order and no other direct inputs on the loop block: variable name, from, to, by. Prefer the default loop variable name "i" unless the user explicitly requires a different name.
-12. For variable references inside math or graph value sockets, use VAR_GET. Do not use MATH_NUMBER with a variable name string.
+10. Emit 'input' commands ONLY for fields the block actually has (per the manual and the rules below). NEVER invent extra fields — e.g. LCD blocks have NO size/font field, so values like "small" or "big" are invalid and will be rejected at execution.
 
 CORRECT SHAPES (these are the only legal command forms):
 - spawn (root):     {"action":"spawn","block":"INITIATE","id":"start","cat":["CATLOOPS"]}
 - spawn (child):    {"action":"spawn","block":"LCD_MESSAGE","id":"msg1","cat":["CATSMARTPHONE","CATVIRTUALACTION"],"parent":"start","pos":"nested"}
 - spawn (in value): {"action":"spawn","block":"MATH_NUMBER","id":"n1","cat":["CATMATH"],"parent":"msg1","pos":"nested"}
 - input field:      {"action":"input","block":"msg1","value":"Hello World"}
-
-LCD MESSAGE DEFAULT:
-- For requests like "display hello", "display AC", or "show hello ac", prefer:
-  - spawn INITIATE
-  - spawn LCD_MESSAGE under INITIATE
-  - one input on the LCD_MESSAGE id containing the full message text
-- Do not add extra inputs like "red" or "small" unless the user explicitly requested a color or size.
 
 WRONG (will be rejected):
 - {"action":"spawn","id":"start"}                          ← missing 'block'
@@ -366,14 +408,12 @@ WRONG (will be rejected):
 EXAMPLE — plot sin(x) on the graph:
 - spawn INITIATE id=start
 - spawn RESET_GRAPH id=reset parent=start pos=NESTED   ← MUST be 'nested' because INITIATE is a CAP (no next connector). Then input reset value="red".
-- spawn CONTROLS_FOR id=loop parent=reset pos=NEXT     ← 'next' chains under RESET_GRAPH (which is a regular statement). inputs in order: loop variable name "i", from "0", to "10", by "1"
+- spawn CONTROLS_FOR id=loop parent=reset pos=NEXT     ← 'next' chains under RESET_GRAPH (which is a regular statement). inputs in order: loop variable name "x", from "0", to "10", by "1"
 - spawn GRAPH id=draw parent=loop pos=nested  (statement inside the loop's "do" body)
-- spawn VAR_GET id=xref parent=draw pos=nested  (occupies GRAPH's x value socket as the loop variable reference)
-- input xref value="i"  (selects the loop variable on the variable getter)
+- spawn MATH_NUMBER id=xref parent=draw pos=nested  (occupies GRAPH's x value socket via spawn — NOT input)
+- input xref value="x"  (sets the number-block's value field; for a variable reference use a variable get block instead)
 - spawn MATH_TRIG id=siny parent=draw pos=nested  (occupies GRAPH's y value socket)
 - input siny value="sin"  (sets the trig dropdown; second input would set the angle field)
-- spawn VAR_GET id=loopVar parent=siny pos=nested  (fills the trig input with the same loop variable)
-- input loopVar value="i"
 - input draw value="red"  (graph color)
 - input draw value="false"  (clear? checkbox)
 
@@ -388,6 +428,19 @@ GRAPH:
 - Then use input commands on the GRAPH id for:
   1. point color
   2. clear checkbox
+
+COLOR DROPDOWNS (GRAPH, RESET_GRAPH, LCD_MESSAGE, LCD_TEXT, LED, BAR, ...):
+- The ONLY legal color values are: red, yellow, green, blue.
+- Never emit any other word (no size words, no hex codes, no "black"/"white").
+
+LCD_MESSAGE:
+- Exactly TWO inputs, in this order:
+  1. the message text (any string)
+  2. color (red/yellow/green/blue)
+- It has NO size, font, position or alignment field. Two input commands maximum.
+
+LCD_TEXT:
+- Inputs in this order: 1. text, 2. line number, 3. offset, 4. color (red/yellow/green/blue).
 
 MATH_TRIG:
 - First input command selects operation: sin, cos, tan, asin, acos, atan.
@@ -404,15 +457,14 @@ MATH_ADVANCED:
 - If the formula only needs one variable, prefer using parameter a, because it is the first positional socket.
 - For degrees-to-radians in machine-generated scripts, use:
   expression_string = "a*3.1416/180"
-  first nested child = VAR_GET i
-- Only use "x*3.1416/180" if you also fill a, b, and c before nesting the loop variable into x.
+  first nested child = VAR_GET angleDeg
+- Only use "x*3.1416/180" if you also fill a, b, and c before nesting the angleDeg variable into x.
 
 VARIABLE BLOCKS:
 - VAR_GET -> variable value block, type=value, category=["Variables"]
 - VAR_SET -> set variable block, type=statement, category=["Variables"]
 - VAR_CHANGE -> change integer variable block, type=statement, category=["Variables"]
-- Use VAR_GET for loop variables inside math blocks and graph sockets.
-- Never use MATH_NUMBER with value="i" or value="x" when you mean a variable reference.
+- Use VAR_GET for loop variables inside math blocks. Never use MATH_NUMBER with value="angleDeg" 
 
 CATEGORY MAP:
 - Flow Control -> [CATLOOPS]
@@ -671,7 +723,7 @@ REFERENCE MANUAL:
                 signal: controller.signal
             });
         } catch (fetchErr) {
-            if (fetchErr.name === "AbortError") throw new Error("Gemini request timed out after 60s.");
+            if (fetchErr.name === "AbortError") throw new Error("Gemini request timed out after 180s.");
             throw new Error(`Network error reaching Gemini: ${fetchErr.message}`);
         } finally {
             clearTimeout(timeoutId);
@@ -717,6 +769,9 @@ REFERENCE MANUAL:
         // Sequence the calls
         let totalCommandsSent = 0;
         let totalSpawnedCount = 0;
+        let lastPlacementMode;
+        let lastSpawnStats;
+        const allInputFailures = [];
         const allDropped = [];           // post-normalize dropped commands across all calls
         const rawScripts = [];           // raw LLM scripts before normalize, for diagnostics
         for (const call of calls) {
@@ -743,6 +798,15 @@ REFERENCE MANUAL:
                 if (out && out.result && typeof out.result.spawnedCount === "number") {
                     totalSpawnedCount += out.result.spawnedCount;
                 }
+                if (out && out.result && out.result.placementMode) {
+                    lastPlacementMode = out.result.placementMode;
+                }
+                if (out && out.result && out.result.spawnStats) {
+                    lastSpawnStats = out.result.spawnStats;
+                }
+                if (out && out.result && Array.isArray(out.result.inputFailures)) {
+                    allInputFailures.push(...out.result.inputFailures);
+                }
             } catch (execErr) {
                 // Attach diagnostics so the popup can show WHY nothing was placed.
                 const diag = {
@@ -760,7 +824,10 @@ REFERENCE MANUAL:
             status: "success",
             actions: calls.map(c => c.functionCall.name),
             commandsEmitted: totalCommandsSent,
-            blocksPlaced: totalSpawnedCount
+            blocksPlaced: totalSpawnedCount,
+            placementMode: lastPlacementMode,
+            spawnStats: lastSpawnStats,
+            warnings: allInputFailures.map(f => `field input "${f.value}" on '${f.block}' failed: ${f.why}`)
         };
 
     } catch (error) {
@@ -774,7 +841,6 @@ REFERENCE MANUAL:
 // LLM commands were rejected and why.
 function normalizeGeneratedScript(script) {
     const knownIds = new Set();
-    let lastSpawnId = null;
     const dropped = [];
     const out = [];
 
@@ -829,7 +895,6 @@ function normalizeGeneratedScript(script) {
             }
             if (normalized.id) {
                 knownIds.add(normalized.id);
-                lastSpawnId = normalized.id;
             }
             out.push(normalized);
             continue;
@@ -858,22 +923,24 @@ function normalizeGeneratedScript(script) {
             }
             const target = normalized.block;
             if (!target || !knownIds.has(target)) {
-                if (lastSpawnId) {
-                    console.warn(`Rewriting invalid input target '${target}' to last spawned id '${lastSpawnId}'.`);
-                    normalized.block = lastSpawnId;
-                } else {
-                    const why = "input has no spawn target (no prior spawn to fall back to)";
-                    console.warn(`Dropping: ${why}`, command);
-                    dropped.push({ reason: why, command });
-                    continue;
-                }
+                // Do NOT rewrite to the last spawned id — silently applying a
+                // field value to an unrelated block corrupts a correct block,
+                // which is strictly worse than skipping the command.
+                const why = `input targets unknown id '${target}' (no matching prior spawn)`;
+                console.warn(`Dropping: ${why}`, command);
+                dropped.push({ reason: why, command });
+                continue;
             }
             out.push(normalized);
             continue;
         }
 
-        console.warn(`Unknown action '${normalized.action}' — passing through.`, command);
-        out.push(normalized);
+        // Unknown actions used to be "passed through", but execute() has no
+        // branch for them — they were silently ignored. Drop with a reason so
+        // they show up in the diagnostics instead of vanishing.
+        const why = `unknown action '${normalized.action}'`;
+        console.warn(`Dropping: ${why}`, command);
+        dropped.push({ reason: why, command });
     }
 
     return { script: out, dropped };
@@ -888,8 +955,25 @@ function normalizeCategoryPath(cat, blockKey) {
     } else if (typeof cat === "string" && cat.trim()) {
         path = [normalizeToken(cat)];
     } else {
-        const mapped = BLOCK_CATEGORY_MAP[blockKey];
-        path = mapped ? [mapped] : null;
+        path = null;
+    }
+
+    // GROUND-TRUTH OVERRIDE: BLOCK_CATEGORY_MAP knows where each block really
+    // lives; the LLM-provided cat is only a hint and is sometimes wrong — e.g.
+    // it emitted ["CATSMARTPHONE","CATVIRTUALACTION","CATMATH"] for GRAPH,
+    // which made the agent open the MATH category (last element = leaf) and
+    // fail the flyout hunt for "draw graph point (". If the provided leaf
+    // disagrees with the known category, replace the path with the canonical
+    // one (nested-parent expansion below re-adds CATSMARTPHONE etc.).
+    const mapped = BLOCK_CATEGORY_MAP[blockKey];
+    if (mapped) {
+        const leaf = (path && path.length > 0) ? path[path.length - 1] : null;
+        if (!leaf || leaf.toUpperCase() !== mapped.toUpperCase()) {
+            if (leaf) {
+                console.warn(`[BlocklyAgent] cat path for '${blockKey}' ends in '${leaf}' but the block lives in '${mapped}' — overriding with the canonical path.`);
+            }
+            path = [mapped];
+        }
     }
     if (!path || path.length === 0) return cat;
 
@@ -970,26 +1054,36 @@ async function executeOnPage(method, args, preferredTabId) {
     }
     console.log(`[BlocklyAgent] target tab id=${tab.id} url=${tab.url}`);
 
-    // Always make sure BlocklyAgent is present in the MAIN world before calling
-    // execute. The manifest declares blockly_methods.js as a MAIN-world content
-    // script, but pages already loaded when the extension was installed/reloaded
-    // miss that injection — and a fresh re-inject is also cheap when the agent
-    // already exists (the IIFE just re-assigns window.BlocklyAgent).
+    // Make sure the CURRENT BlocklyAgent build is present in the MAIN world
+    // before calling execute. Checking mere existence is not enough: after an
+    // extension reload, an already-open page still holds the OLD scripts, so
+    // probes that only test `!!window.BlocklyAgent` skip injection and the run
+    // silently executes stale code (e.g. pre-API field handling that dumps
+    // every input into the block's first field). Compare versions and
+    // re-inject whenever they don't match — the IIFEs simply re-assign
+    // window.BlocklyAgent / window.BlocklyApiEngine.
     try {
         const probe = await chrome.scripting.executeScript({
             target: { tabId: tab.id },
-            func: () => !!window.BlocklyAgent,
+            func: () => ({
+                agentVersion: (window.BlocklyAgent && window.BlocklyAgent.VERSION) || null,
+                hasAgent: !!window.BlocklyAgent,
+                hasEngine: !!window.BlocklyApiEngine
+            }),
             world: "MAIN"
         });
-        const present = !!probe?.[0]?.result;
-        console.log(`[BlocklyAgent] BlocklyAgent present in MAIN world before reinject: ${present}`);
-        console.log("[BlocklyAgent] injecting blockly_methods.js into MAIN world...");
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ["blockly_methods.js"],
-            world: "MAIN"
-        });
-        await new Promise(r => setTimeout(r, 200));
+        const info = (probe && probe[0] && probe[0].result) || {};
+        const fresh = info.hasAgent && info.hasEngine && info.agentVersion === EXPECTED_AGENT_VERSION;
+        console.log(`[BlocklyAgent] MAIN world: agent=${info.hasAgent} (v${info.agentVersion}), engine=${info.hasEngine}, expected v${EXPECTED_AGENT_VERSION} -> ${fresh ? "fresh" : "STALE, re-injecting"}`);
+        if (!fresh) {
+            console.log("[BlocklyAgent] injecting blockly_api_engine.js + blockly_methods.js into MAIN world...");
+            await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                files: ["blockly_api_engine.js", "blockly_methods.js"],
+                world: "MAIN"
+            });
+            await new Promise(r => setTimeout(r, 200));
+        }
     } catch (probeErr) {
         console.error("[BlocklyAgent] Probe/inject failed:", probeErr);
         throw new Error(`Could not inject into tab ${tab.id} (${tab.url}). Refresh the Blockly page and retry. Underlying: ${probeErr.message}`);

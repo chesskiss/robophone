@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="title-bar">
+      <h1>Blockly AI Agent</h1>
+      <button id="closeBtn" class="close-btn" title="Close" aria-label="Close">×</button>
+    </header>
+
+    <div class="input-group">
+      <label for="apiKey">Gemini API Key</label>
+      <input type="password" id="apiKey" placeholder="Enter API Key..." value="AIzaSyCcC7r8gGSSfnRCiP7BhfWqFgK6llIN6rI">
+    </div>
+
+    <div class="input-group">
+      <label for="prompt">What should I build?</label>
+      <textarea id="prompt" rows="3" placeholder="e.g. Display 'I am great' on the smartphone"></textarea>
+    </div>
+
+    <button id="runBtn">Run Automation</button>
+    <button id="testBtn" title="Executes a built-in sin-graph script directly, bypassing Gemini" style="margin-top:8px;">Run Test Script (no LLM)</button>
+
+    <div id="status" class="status-box hidden">
+      <p id="statusMsg"></p>
+      <ul id="actionList"></ul>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

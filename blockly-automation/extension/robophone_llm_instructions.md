@@ -78,7 +78,7 @@ example_task: canonical use
 - Leave the `clear?` checkbox unchecked while drawing a curve; otherwise each new point may erase previous points.
 - Trigonometric block input is in degrees.
 - When the user asks for the x-axis in radians, loop over degrees for trig calculation and convert degrees to radians for graph X using `math_expression`:
-  - `xRad = x*3.1416/180` with `x = i`.
+  - `xRad = x*3.1416/180` with `x = angleDeg`.
 
 ## Common Recipes
 
@@ -92,11 +92,11 @@ recipe_id: plot_trig_radian_x_axis
 steps:
   - Start Program / on start
   - Reset Graph red and blue before plotting
-  - Repeat and Increment i from -360 to 360 by 90 for -2pi..2pi in 0.5pi steps
-  - Set xRad using math_expression: "x*3.1416/180", x=i
-  - Set ySin using trig_function sin(i)
+  - Repeat and Increment angleDeg from -360 to 360 by 90 for -2pi..2pi in 0.5pi steps
+  - Set xRad using math_expression: "x*3.1416/180", x=angleDeg
+  - Set ySin using trig_function sin(angleDeg)
   - Draw Graph Point x=xRad y=ySin color=red clear=false
-  - Set yCos using trig_function cos(i)
+  - Set yCos using trig_function cos(angleDeg)
   - Draw Graph Point x=xRad y=yCos color=blue clear=false
 ```
 
@@ -109,11 +109,11 @@ recipe_id: plot_trig_radian_x_axis
 steps:
   - Start Program / on start
   - Reset Graph red and blue before plotting
-  - Repeat and Increment i from -360 to 360 by 90 for -2pi..2pi in 0.5pi steps
-  - Set xRad using math_expression: "x*3.1416/180", x=i
-  - Set ySin using trig_function sin(i)
+  - Repeat and Increment angleDeg from -360 to 360 by 90 for -2pi..2pi in 0.5pi steps
+  - Set xRad using math_expression: "x*3.1416/180", x=angleDeg
+  - Set ySin using trig_function sin(angleDeg)
   - Draw Graph Point x=xRad y=ySin color=red clear=false
-  - Set yCos using trig_function cos(i)
+  - Set yCos using trig_function cos(angleDeg)
   - Draw Graph Point x=xRad y=yCos color=blue clear=false
 ```
 
@@ -136,7 +136,7 @@ steps:
   - spawn RESET_GRAPH id=reset parent=start pos=nested cat=["CATSMARTPHONE","CATVIRTUALACTION"]
   - input reset "red"
   - spawn CONTROLS_FOR id=loop parent=reset pos=next cat=["CATLOOPS"]
-  - input loop "i"
+  - input loop "angleDeg"
   - input loop "-360"
   - input loop "360"
   - input loop "10"
@@ -144,11 +144,11 @@ steps:
   - spawn MATH_ADVANCED id=xrad_calc parent=draw pos=nested cat=["CATMATH"]
   - input xrad_calc "a*3.1416/180"
   - spawn VAR_GET id=get_angle parent=xrad_calc pos=nested cat=["Variables"]
-  - input get_angle "i"
+  - input get_angle "angleDeg"
   - spawn MATH_TRIG id=ysin_calc parent=draw pos=nested cat=["CATMATH"]
   - input ysin_calc "sin"
   - spawn VAR_GET id=get_angle2 parent=ysin_calc pos=nested cat=["Variables"]
-  - input get_angle2 "i"
+  - input get_angle2 "angleDeg"
   - input draw "red"
   - input draw "false"
 ```
@@ -201,8 +201,7 @@ instruction_template:
   - Go to Virtual Display
   - Drag LCD Grid / lcd grid write into the program
   - Put the text in the text socket
-  - Set line and offset
-  - Only choose color and size if the user explicitly asked for them
+  - Set line, offset, color, and size
 example_task: Display label 'sin' at line 0 offset 0 in red.
 ```
 
@@ -235,7 +234,7 @@ instruction_template:
   - Go to Virtual Display
   - Drag LCD Message
   - Put the message text into the text input
-  - Leave optional styling unchanged unless the user explicitly asked for color or size
+  - Choose color/size if available
 example_task: Display 'Program complete'.
 ```
 
@@ -1767,7 +1766,7 @@ instruction_template:
   - Choose/create counter variable
   - Set from, to, by
   - Place loop body inside do area
-example_task: count with i from -360 to 360 by 90.
+example_task: count with angleDeg from -360 to 360 by 90.
 ```
 
 ## If
@@ -2310,7 +2309,7 @@ html_category: Math
 html_label: "a*x^2+b*x+c"
 html_match_fragments: ["a*x^2+b*x+c"]
 type: value
-visual_signature: green value block with white free-text formula field and labels a= b= c= x=; example text 'x*3.1416/180 a=1 b=1 c=1 x=i'
+visual_signature: green value block with white free-text formula field and labels a= b= c= x=; example text 'x*3.1416/180 a=1 b=1 c=1 x=angleDeg'
 function:
   summary: Evaluates a custom numeric formula written as text using parameters a, b, c, and x.
   use_when:
@@ -2334,7 +2333,7 @@ instruction_template:
   - Type formula in white text field
   - Fill a/b/c inputs
   - Put source variable into x input
-example_task: Set xRad to expression 'x*3.1416/180' with x=i.
+example_task: Set xRad to expression 'x*3.1416/180' with x=angleDeg.
 common_recipes:
   degrees_to_radians:
     task: convert loop angle in degrees to radians for graph x-axis
@@ -2342,7 +2341,7 @@ common_recipes:
     a: 1
     b: 1
     c: 1
-    x: i
+    x: angleDeg
     output_variable: xRad
   polynomial:
     expression_string: "a*x*x+b*x+c"
@@ -2411,10 +2410,10 @@ instruction_template:
   - Go to Math
   - Drag Trigonometric Function
   - Choose sin/cos/tan
-  - Put i variable into input
-example_task: Set ySin to sin(i).
+  - Put angleDeg variable into input
+example_task: Set ySin to sin(angleDeg).
 important_note: input for sin/cos/tan is degrees; do not feed radians into this block unless the environment explicitly changed settings
-paired_recipe: for graph x-axis in radians, compute y with i but draw x using xRad from math_expression
+paired_recipe: for graph x-axis in radians, compute y with angleDeg but draw x using xRad from math_expression
 ```
 
 ## Rounding & Numeric Ops
