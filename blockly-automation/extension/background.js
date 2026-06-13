@@ -337,6 +337,123 @@ const GEMINI_MODEL = "gemini-3.1-flash-lite";
 // version differs (pages opened before an extension reload keep stale code).
 const EXPECTED_AGENT_VERSION = "15.8";
 
+function extractGeminiTextParts(data) {
+    const candidate = data?.candidates?.[0];
+    const parts = candidate?.content?.parts;
+    if (!Array.isArray(parts)) return "";
+    return parts
+        .map(part => typeof part?.text === "string" ? part.text : "")
+        .filter(Boolean)
+        .join("\n")
+        .trim();
+}
+
+function parseJsonLoose(text) {
+    const raw = String(text || "").trim();
+    if (!raw) throw new Error("empty normalization response");
+    try {
+        return JSON.parse(raw);
+    } catch (_) { }
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced) {
+        return JSON.parse(fenced[1].trim());
+    }
+    const firstBrace = raw.indexOf("{");
+    const lastBrace = raw.lastIndexOf("}");
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+        return JSON.parse(raw.slice(firstBrace, lastBrace + 1));
+    }
+    throw new Error("normalization response was not valid JSON");
+}
+
+async function normalizePrompt(rawUserPrompt, apiKey) {
+    const originalPrompt = String(rawUserPrompt || "").trim();
+    if (!originalPrompt) {
+        return {
+            detectedLanguage: "unknown",
+            normalizedEnglish: "",
+            confidence: 0,
+            notes: "empty prompt",
+            usedFallback: true
+        };
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+    const requestBody = {
+        contents: [{ role: "user", parts: [{ text: originalPrompt }] }],
+        generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 512,
+            responseMimeType: "application/json"
+        },
+        system_instruction: {
+            parts: [{
+                text: `You normalize user requests for an English Blockly planner.
+
+Return JSON only with this exact shape:
+{
+  "detectedLanguage": "string",
+  "normalizedEnglish": "string",
+  "confidence": 0.0,
+  "notes": "string"
+}
+
+Rules:
+- Detect the language of the user's request.
+- Translate the request into concise, literal English for Blockly planning.
+- Preserve numbers, ranges, filenames, URLs, variable names, quoted strings, and RoboPhone/Blockly terms when already English.
+- Do not add implementation suggestions.
+- Do not rewrite into steps.
+- Do not infer extra requirements.
+- If the input is already English, keep the meaning unchanged.
+- confidence must be a number from 0 to 1.
+- notes may be empty.`
+            }]
+        }
+    };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45_000);
+    try {
+        const bodyJson = JSON.stringify(requestBody);
+        console.log(`[BlocklyAgent] normalization request size=${bodyJson.length} bytes`);
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: bodyJson,
+            signal: controller.signal
+        });
+        const data = await response.json();
+        if (data?.error) {
+            throw new Error(data.error.message || JSON.stringify(data.error));
+        }
+        if (!response.ok) {
+            throw new Error(`Gemini HTTP ${response.status}: ${response.statusText}`);
+        }
+        const parsed = parseJsonLoose(extractGeminiTextParts(data));
+        const detectedLanguage = String(parsed?.detectedLanguage || "unknown").trim() || "unknown";
+        const confidenceRaw = Number(parsed?.confidence);
+        const confidence = Number.isFinite(confidenceRaw) ? Math.max(0, Math.min(1, confidenceRaw)) : 0;
+        const notes = String(parsed?.notes || "").trim();
+        let normalizedEnglish = String(parsed?.normalizedEnglish || "").trim();
+        if (!normalizedEnglish) {
+            throw new Error("normalization JSON missing normalizedEnglish");
+        }
+        if (detectedLanguage.toLowerCase().startsWith("en") && confidence >= 0.85) {
+            normalizedEnglish = originalPrompt;
+        }
+        return {
+            detectedLanguage,
+            normalizedEnglish,
+            confidence,
+            notes,
+            usedFallback: false
+        };
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
 async function handleGeminiFlow(userPrompt, apiKey, requestTabId) {
     // Use the key the popup sent — never override it. The previous hardcoded
     // override silently ignored whatever the user typed in the popup field.
@@ -348,9 +465,32 @@ async function handleGeminiFlow(userPrompt, apiKey, requestTabId) {
     console.log(`[BlocklyAgent] POST ${url.replace(apiKey, "<key>")}`);
     const manual = await loadRoboPhoneManual();
     console.log(`[BlocklyAgent] manual length=${manual.length} chars`);
+    const originalPrompt = String(userPrompt || "").trim();
+    let normalization = {
+        detectedLanguage: "unknown",
+        normalizedEnglish: originalPrompt,
+        confidence: 0,
+        notes: "",
+        usedFallback: true
+    };
+    try {
+        normalization = await normalizePrompt(originalPrompt, apiKey);
+        console.log("[BlocklyAgent] prompt normalization:", normalization);
+    } catch (normalizeErr) {
+        console.warn("[BlocklyAgent] prompt normalization failed; falling back to original prompt:", normalizeErr.message);
+        normalization.notes = `fallback: ${normalizeErr.message}`;
+    }
+
+    const plannerPrompt = [
+        `Normalized English prompt: ${normalization.normalizedEnglish || originalPrompt}`,
+        `Original user prompt: ${originalPrompt}`,
+        `Detected language: ${normalization.detectedLanguage}`,
+        `Normalization confidence: ${normalization.confidence}`,
+        normalization.notes ? `Normalization notes: ${normalization.notes}` : ""
+    ].filter(Boolean).join("\n");
 
     const requestBody = {
-        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        contents: [{ role: "user", parts: [{ text: plannerPrompt }] }],
         tools: tools,
         // AUTO (not ANY) — the model still emits a tool call because the
         // system prompt mandates it, but it can think first. ANY forces an
@@ -758,12 +898,48 @@ REFERENCE MANUAL:
         console.log(`[BlocklyAgent] candidate parts: ${parts.length}, types: ${parts.map(p => p.functionCall ? `fnCall(${p.functionCall.name})` : p.text ? `text(${p.text.length}ch)` : 'unknown').join(", ")}`);
 
         // Check for function calls
-        const calls = parts.filter(p => p.functionCall);
+        let calls = parts.filter(p => p.functionCall);
 
+        // AUTO mode occasionally produces text instead of a tool call for complex
+        // prompts. Retry once with mode=ANY to force a tool call rather than giving up.
         if (calls.length === 0) {
             const textOut = parts.find(p => p.text)?.text || "";
-            console.warn("[BlocklyAgent] Gemini did NOT call the tool. Returned text:", textOut);
-            return { message: textOut || "Gemini didn't return any specific actions." };
+            console.warn("[BlocklyAgent] Gemini did NOT call the tool (AUTO mode). Returned text:", textOut);
+            console.warn("[BlocklyAgent] Retrying with mode=ANY to force a tool call...");
+
+            const retryBody = { ...requestBody, tool_config: { function_calling_config: { mode: "ANY" } } };
+            const retryController = new AbortController();
+            const retryTimeout = setTimeout(() => retryController.abort(), 180_000);
+            let retryResponse;
+            try {
+                retryResponse = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(retryBody),
+                    signal: retryController.signal
+                });
+            } catch (retryErr) {
+                if (retryErr.name === "AbortError") throw new Error("Gemini retry timed out after 180s.");
+                throw new Error(`Network error on Gemini retry: ${retryErr.message}`);
+            } finally {
+                clearTimeout(retryTimeout);
+            }
+            const retryData = await retryResponse.json();
+            if (retryData.error) throw new Error(`Gemini API (retry): ${retryData.error.message || JSON.stringify(retryData.error)}`);
+            const retryCandidate = retryData.candidates?.[0];
+            const retryParts = retryCandidate?.content?.parts;
+            if (Array.isArray(retryParts)) {
+                calls = retryParts.filter(p => p.functionCall);
+                console.log(`[BlocklyAgent] Retry result: ${calls.length} tool call(s)`);
+            }
+            if (calls.length === 0) {
+                const retryText = (Array.isArray(retryParts) ? retryParts.find(p => p.text)?.text : "") || "";
+                console.warn("[BlocklyAgent] Retry also produced no tool call. Returning message.");
+                return {
+                    message: retryText || textOut || "Gemini didn't return any specific actions.",
+                    normalization
+                };
+            }
         }
 
         // Sequence the calls
@@ -827,7 +1003,8 @@ REFERENCE MANUAL:
             blocksPlaced: totalSpawnedCount,
             placementMode: lastPlacementMode,
             spawnStats: lastSpawnStats,
-            warnings: allInputFailures.map(f => `field input "${f.value}" on '${f.block}' failed: ${f.why}`)
+            warnings: allInputFailures.map(f => `field input "${f.value}" on '${f.block}' failed: ${f.why}`),
+            normalization
         };
 
     } catch (error) {

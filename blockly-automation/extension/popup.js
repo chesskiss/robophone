@@ -121,6 +121,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const stats = response.spawnStats ? `, spawns api:${response.spawnStats.api} drag:${response.spawnStats.drag}` : "";
             const mode = response.placementMode ? ` [${response.placementMode} mode${stats}]` : "";
             const warnings = response.warnings || [];
+            const normalization = response.normalization || null;
             const warnNote = warnings.length ? ` ⚠ ${warnings.length} field warning(s) — see below.` : "";
             showStatus(
                 (typeof cnt === "number")
@@ -128,6 +129,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                     : "Success! Actions completed:",
                 "success"
             );
+            if (normalization) {
+                const lang = document.createElement('li');
+                lang.innerText = `🌐 detected language: ${normalization.detectedLanguage} (confidence ${normalization.confidence})`;
+                actionList.appendChild(lang);
+                const normalized = document.createElement('li');
+                normalized.innerText = `📝 normalized prompt: ${normalization.normalizedEnglish}`;
+                actionList.appendChild(normalized);
+                if (normalization.usedFallback || normalization.notes) {
+                    const note = document.createElement('li');
+                    note.innerText = `ℹ normalization notes: ${normalization.notes || "used original prompt fallback"}`;
+                    note.style.color = "#1d4ed8";
+                    actionList.appendChild(note);
+                }
+            }
             (response.actions || []).forEach(action => {
                 const li = document.createElement('li');
                 li.innerText = action;
@@ -141,6 +156,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         } else if (response.message) {
             showStatus(response.message, "");
+            const normalization = response.normalization || null;
+            if (normalization) {
+                const lang = document.createElement('li');
+                lang.innerText = `🌐 detected language: ${normalization.detectedLanguage} (confidence ${normalization.confidence})`;
+                actionList.appendChild(lang);
+                const normalized = document.createElement('li');
+                normalized.innerText = `📝 normalized prompt: ${normalization.normalizedEnglish}`;
+                actionList.appendChild(normalized);
+            }
         }
     };
 
