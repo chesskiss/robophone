@@ -228,6 +228,50 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
+function saveDebugLog(payload) {
+    try {
+        const json = JSON.stringify(payload, null, 2);
+        const dataUrl = "data:application/json;charset=utf-8," + encodeURIComponent(json);
+        const doDownload = () => chrome.downloads.download({
+            url: dataUrl, filename: "blockly_debug.json", conflictAction: "overwrite", saveAs: false
+        });
+        // Erase all previous history entries for this file so Chrome doesn't
+        // append (1), (2)... suffixes when history was cleared or file was moved.
+        chrome.downloads.search({ filenameRegex: "blockly_debug\\.json$" }, (prev) => {
+            if (!prev || !prev.length) { doDownload(); return; }
+            let remaining = prev.length;
+            for (const item of prev) {
+                chrome.downloads.removeFile(item.id, () => {
+                    chrome.downloads.erase({ id: item.id }, () => {
+                        if (--remaining === 0) doDownload();
+                    });
+                });
+            }
+        });
+    } catch (_) {}
+}
+
+async function captureGeneratedCode(tabId) {
+    try {
+        const results = await chrome.scripting.executeScript({
+            target: { tabId },
+            world: "MAIN",
+            func: () => new Promise(resolve => {
+                const byXpath = (path) => document.evaluate(
+                    path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+                ).singleNodeValue;
+                const tab = byXpath('/html/body/div[1]/div/table/tbody/tr[1]/td/div/table/tbody/tr/td[3]');
+                if (tab) tab.click();
+                setTimeout(() => {
+                    const panel = byXpath('/html/body/div[1]/div/div[4]');
+                    resolve(panel ? (panel.innerText || panel.textContent || '').trim() : null);
+                }, 600);
+            })
+        });
+        return (results && results[0] && results[0].result) || null;
+    } catch (_) { return null; }
+}
+
 // Direct-run path for testing: same normalize + execute pipeline as the
 // Gemini flow, just without the LLM round-trip. Lets the popup's test button
 // exercise block placement deterministically.
@@ -241,6 +285,19 @@ async function handleDirectScript(rawScript, requestTabId) {
     if (dropped.length) console.warn("[BlocklyAgent] Dropped during normalize:", dropped);
     try {
         const out = await executeOnPage("execute_blockly_script", { script }, requestTabId);
+        const inputFailures = (out && out.result && out.result.inputFailures) || [];
+        const generatedCode = await captureGeneratedCode(requestTabId);
+        saveDebugLog({
+            ts: Date.now(),
+            prompt: "(direct test)",
+            geminiScript: rawScript,
+            normalizedScript: script,
+            dropped,
+            spawnStats: (out && out.result) ? out.result.spawnStats : undefined,
+            inputFailures,
+            generatedCode,
+            error: null
+        });
         return {
             status: "success",
             actions: ["execute_blockly_script (direct test)"],
@@ -248,7 +305,7 @@ async function handleDirectScript(rawScript, requestTabId) {
             blocksPlaced: (out && out.result) ? Number(out.result.spawnedCount || 0) : 0,
             placementMode: (out && out.result) ? out.result.placementMode : undefined,
             spawnStats: (out && out.result) ? out.result.spawnStats : undefined,
-            warnings: ((out && out.result && out.result.inputFailures) || []).map(f => `field input "${f.value}" on '${f.block}' failed: ${f.why}`)
+            warnings: inputFailures.map(f => `field input "${f.value}" on '${f.block}' failed: ${f.why}`)
         };
     } catch (execErr) {
         const diag = {
@@ -258,6 +315,7 @@ async function handleDirectScript(rawScript, requestTabId) {
             droppedReasons: dropped.slice(0, 10).map(d => d.reason),
         };
         execErr.message += ` | diagnostics: ${JSON.stringify(diag)}`;
+        saveDebugLog({ ts: Date.now(), prompt: "(direct test)", geminiScript: rawScript, normalizedScript: script, dropped, error: execErr.message });
         throw execErr;
     }
 }
@@ -330,7 +388,7 @@ chrome.windows.onRemoved.addListener(async (windowId) => {
 
 // Gemini model that supports tool calling. Single source of truth — every
 // generateContent URL in this file is built from this constant.
-const GEMINI_MODEL = "gemini-3.1-flash-lite";
+const GEMINI_MODEL = "gemini-2.5-flash-lite";
 
 // Must match BlocklyAgent.VERSION in blockly_methods.js. Bump both together —
 // executeOnPage re-injects the MAIN-world scripts whenever the page's loaded
@@ -545,17 +603,35 @@ WRONG (will be rejected):
 - {"action":"input","value":"Hello"}                       ← missing 'block' (the target id)
 - {"action":"input","block":"msg1","value":"sin_val"}      ← 'value' is a logical id; use spawn pos:'nested' instead
 
-EXAMPLE — plot sin(x) on the graph:
+EXAMPLE — plot sin(x) on the graph (no amplitude):
 - spawn INITIATE id=start
-- spawn RESET_GRAPH id=reset parent=start pos=NESTED   ← MUST be 'nested' because INITIATE is a CAP (no next connector). Then input reset value="red".
-- spawn CONTROLS_FOR id=loop parent=reset pos=NEXT     ← 'next' chains under RESET_GRAPH (which is a regular statement). inputs in order: loop variable name "x", from "0", to "10", by "1"
-- spawn GRAPH id=draw parent=loop pos=nested  (statement inside the loop's "do" body)
-- spawn MATH_NUMBER id=xref parent=draw pos=nested  (occupies GRAPH's x value socket via spawn — NOT input)
-- input xref value="x"  (sets the number-block's value field; for a variable reference use a variable get block instead)
-- spawn MATH_TRIG id=siny parent=draw pos=nested  (occupies GRAPH's y value socket)
-- input siny value="sin"  (sets the trig dropdown; second input would set the angle field)
-- input draw value="red"  (graph color)
-- input draw value="false"  (clear? checkbox)
+- spawn RESET_GRAPH id=reset parent=start pos=nested    ← MUST be 'nested' because INITIATE is a CAP. input reset value="red"
+- spawn CONTROLS_FOR id=loop parent=reset pos=next      ← inputs in order: variable "angleDeg", from "0", to "360", by "10"
+- spawn GRAPH id=draw parent=loop pos=nested            ← inside loop body
+- spawn VAR_GET id=xv parent=draw pos=nested            ← x socket: use VAR_GET, not MATH_NUMBER, for the loop variable
+- input xv value="angleDeg"
+- spawn MATH_TRIG id=siny parent=draw pos=nested        ← y socket
+- input siny value="sin"
+- spawn VAR_GET id=av parent=siny pos=nested            ← angle socket inside trig
+- input av value="angleDeg"
+- input draw value="red"
+- input draw value="false"
+
+EXAMPLE — plot 5*sin(x) on the graph (WITH amplitude):
+- ... (same INITIATE / RESET_GRAPH / CONTROLS_FOR / GRAPH setup as above) ...
+- spawn VAR_GET id=xv parent=draw pos=nested            ← x socket
+- input xv value="angleDeg"
+- spawn MATH_ARITHMETIC id=y_amp parent=draw pos=nested ← y socket: outer multiply
+- input y_amp value="×"
+- spawn MATH_NUMBER id=amp parent=y_amp pos=nested      ← left operand: the amplitude
+- input amp value="5"
+- spawn MATH_TRIG id=siny parent=y_amp pos=nested       ← right operand: trig result
+- input siny value="sin"
+- spawn VAR_GET id=av parent=siny pos=nested            ← angle inside trig
+- input av value="angleDeg"
+- input draw value="red"
+- input draw value="false"
+RULE: amplitude always goes in the MATH_ARITHMETIC wrapper, NEVER as a field or nested child on MATH_TRIG itself.
 
 POSITIONAL SOCKET RULES FOR COMMON BLOCKS
 
@@ -586,6 +662,24 @@ MATH_TRIG:
 - First input command selects operation: sin, cos, tan, asin, acos, atan.
 - First nested value child fills the angle/value socket.
 - For sin/cos/tan, use degrees.
+- MATH_TRIG has NO amplitude, multiplier, or scale field. It returns a raw trig value.
+- To scale the result (e.g. amplitude=5 → 5*sin(x)), wrap MATH_TRIG inside a MATH_ARITHMETIC block:
+    spawn MATH_ARITHMETIC id=y_scaled parent=<consumer> pos=nested
+    input y_scaled value="*"
+    spawn MATH_NUMBER id=amp parent=y_scaled pos=nested
+    input amp value="5"
+    spawn MATH_TRIG id=trig parent=y_scaled pos=nested
+    input trig value="sin"
+    spawn VAR_GET id=angle parent=trig pos=nested
+    input angle value="angleDeg"
+  NEVER try to input "*" or a number directly onto a MATH_TRIG block — those will always be rejected.
+
+MATH_ARITHMETIC:
+- First input command sets the operator. The ONLY valid operator strings are: +, -, ×, ÷, ^
+  (Use × for multiply, ÷ for divide. Do NOT use * or /.)
+- First nested value child fills the left operand (A).
+- Second nested value child fills the right operand (B).
+- Result = A operator B.
 
 MATH_ADVANCED:
 - First input command fills the expression string.
@@ -898,48 +992,15 @@ REFERENCE MANUAL:
         console.log(`[BlocklyAgent] candidate parts: ${parts.length}, types: ${parts.map(p => p.functionCall ? `fnCall(${p.functionCall.name})` : p.text ? `text(${p.text.length}ch)` : 'unknown').join(", ")}`);
 
         // Check for function calls
-        let calls = parts.filter(p => p.functionCall);
+        const calls = parts.filter(p => p.functionCall);
 
-        // AUTO mode occasionally produces text instead of a tool call for complex
-        // prompts. Retry once with mode=ANY to force a tool call rather than giving up.
         if (calls.length === 0) {
             const textOut = parts.find(p => p.text)?.text || "";
-            console.warn("[BlocklyAgent] Gemini did NOT call the tool (AUTO mode). Returned text:", textOut);
-            console.warn("[BlocklyAgent] Retrying with mode=ANY to force a tool call...");
-
-            const retryBody = { ...requestBody, tool_config: { function_calling_config: { mode: "ANY" } } };
-            const retryController = new AbortController();
-            const retryTimeout = setTimeout(() => retryController.abort(), 180_000);
-            let retryResponse;
-            try {
-                retryResponse = await fetch(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(retryBody),
-                    signal: retryController.signal
-                });
-            } catch (retryErr) {
-                if (retryErr.name === "AbortError") throw new Error("Gemini retry timed out after 180s.");
-                throw new Error(`Network error on Gemini retry: ${retryErr.message}`);
-            } finally {
-                clearTimeout(retryTimeout);
-            }
-            const retryData = await retryResponse.json();
-            if (retryData.error) throw new Error(`Gemini API (retry): ${retryData.error.message || JSON.stringify(retryData.error)}`);
-            const retryCandidate = retryData.candidates?.[0];
-            const retryParts = retryCandidate?.content?.parts;
-            if (Array.isArray(retryParts)) {
-                calls = retryParts.filter(p => p.functionCall);
-                console.log(`[BlocklyAgent] Retry result: ${calls.length} tool call(s)`);
-            }
-            if (calls.length === 0) {
-                const retryText = (Array.isArray(retryParts) ? retryParts.find(p => p.text)?.text : "") || "";
-                console.warn("[BlocklyAgent] Retry also produced no tool call. Returning message.");
-                return {
-                    message: retryText || textOut || "Gemini didn't return any specific actions.",
-                    normalization
-                };
-            }
+            console.warn("[BlocklyAgent] Gemini did NOT call the tool. Returned text:", textOut);
+            return {
+                message: textOut || "Gemini didn't return any specific actions.",
+                normalization
+            };
         }
 
         // Sequence the calls
@@ -950,6 +1011,7 @@ REFERENCE MANUAL:
         const allInputFailures = [];
         const allDropped = [];           // post-normalize dropped commands across all calls
         const rawScripts = [];           // raw LLM scripts before normalize, for diagnostics
+        const allNormalizedScripts = [];
         for (const call of calls) {
             const { name, args } = call.functionCall;
             if (name === "execute_blockly_script") {
@@ -959,6 +1021,7 @@ REFERENCE MANUAL:
                 const { script: normalizedScript, dropped } = normalizeGeneratedScript(raw);
                 args.script = normalizedScript;
                 allDropped.push(...dropped);
+                allNormalizedScripts.push(normalizedScript);
                 totalCommandsSent += normalizedScript.length;
                 console.log(`[BlocklyAgent] script: raw=${rawCount}, after normalize=${normalizedScript.length}, dropped=${dropped.length}`);
                 console.log("📜 GEMINI GENERATED SCRIPT (after normalize):\n", JSON.stringify(normalizedScript, null, 2));
@@ -996,6 +1059,18 @@ REFERENCE MANUAL:
             }
         }
 
+        const generatedCode = await captureGeneratedCode(requestTabId);
+        saveDebugLog({
+            ts: Date.now(),
+            prompt: userPrompt,
+            geminiScript: rawScripts[0] || [],
+            normalizedScript: allNormalizedScripts[0] || [],
+            dropped: allDropped,
+            spawnStats: lastSpawnStats,
+            inputFailures: allInputFailures,
+            generatedCode,
+            error: null
+        });
         return {
             status: "success",
             actions: calls.map(c => c.functionCall.name),
@@ -1009,6 +1084,7 @@ REFERENCE MANUAL:
 
     } catch (error) {
         console.error("Gemini Flow Error:", error);
+        saveDebugLog({ ts: Date.now(), prompt: userPrompt, error: error.message });
         throw error;
     }
 }

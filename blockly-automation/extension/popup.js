@@ -1,7 +1,8 @@
-// Default key shipped with the extension so users don't have to paste one.
-// Override by typing a different value in the popup — it's persisted to
-// chrome.storage on the next Run click and reused across sessions.
-const DEFAULT_GEMINI_KEY = "REMOVED_GEMINI_API_KEY";
+// No default key — paste your Gemini API key into the popup field.
+// It is persisted to chrome.storage on the first Run click and reused across sessions.
+// For local development, copy .env.example to .env and set GEMINI_API_KEY there
+// (a bundler step would inject it here at build time).
+const DEFAULT_GEMINI_KEY = "";
 
 // Built-in test payload for the "Run Test Script (no LLM)" button: the
 // sin-graph program, exactly as Gemini emitted it in a real run — including
@@ -67,19 +68,107 @@ async function resolveTargetTabId() {
     return null;
 }
 
+// ── Language / direction helpers ─────────────────────────────────────────────
+
+// RTL Unicode ranges: Hebrew, Arabic, Syriac, Thaana, NKo, etc.
+const RTL_REGEX = /[֐-׿؀-ۿ܀-ݏ߀-߿ࠀ-࠿]/;
+
+function detectDir(text) {
+    return RTL_REGEX.test(text) ? "rtl" : "ltr";
+}
+
+function applyDir(el, text) {
+    el.dir = detectDir(text);
+}
+
+// Maps language names (as returned by Gemini normalization) to BCP-47 tags.
+// Used to pass a language hint to the audio transcription call.
+const LANG_NAME_TO_BCP47 = {
+    hebrew: "he", arabic: "ar", russian: "ru", french: "fr",
+    german: "de", spanish: "es", portuguese: "pt", italian: "it",
+    chinese: "zh", japanese: "ja", korean: "ko", turkish: "tr",
+    dutch: "nl", polish: "pl", ukrainian: "uk"
+};
+
+function langNameToBcp47(name) {
+    return LANG_NAME_TO_BCP47[(name || "").toLowerCase().split(" ")[0]] || null;
+}
+
+// ── STT via Gemini audio input ────────────────────────────────────────────────
+// Records a webm/opus blob, base64-encodes it, and sends it to Gemini as an
+// inline audio part. Gemini returns { text, langHint } where langHint is the
+// BCP-47 code Gemini detected (for subsequent prompts / direction detection).
+const STT_GEMINI_MODEL = "gemini-2.5-flash-lite";
+
+async function transcribeWithGemini(blob, apiKey, langHint) {
+    const arrayBuf = await blob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuf);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const b64 = btoa(binary);
+
+    const langLine = langHint
+        ? `The speaker is using language code "${langHint}". `
+        : "";
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${STT_GEMINI_MODEL}:generateContent?key=${apiKey}`;
+    const body = {
+        contents: [{
+            role: "user",
+            parts: [
+                { inlineData: { mimeType: "audio/webm", data: b64 } },
+                {
+                    text: `${langLine}Transcribe this audio verbatim in its original language. ` +
+                          `Return ONLY the spoken text. No translation, no commentary, no punctuation changes.`
+                }
+            ]
+        }],
+        generationConfig: { temperature: 0, maxOutputTokens: 1024 }
+    };
+
+    const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30_000)
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    const text = data?.candidates?.[0]?.content?.parts
+        ?.map(p => p.text || "").join("").trim();
+    if (!text) throw new Error("Gemini returned empty transcription");
+    return text;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     const runBtn = document.getElementById('runBtn');
     const testBtn = document.getElementById('testBtn');
     const closeBtn = document.getElementById('closeBtn');
+    const micBtn = document.getElementById('micBtn');
+    const sttStatus = document.getElementById('sttStatus');
+    const langSelect = document.getElementById('langSelect');
     const promptInput = document.getElementById('prompt');
     const apiKeyInput = document.getElementById('apiKey');
     const statusDiv = document.getElementById('status');
     const statusMsg = document.getElementById('statusMsg');
     const actionList = document.getElementById('actionList');
 
-    // Load saved API Key (or fall back to the bundled default)
-    const data = await chrome.storage.local.get(['geminiApiKey']);
+    // Load saved API Key and language preference
+    const data = await chrome.storage.local.get(['geminiApiKey', 'sttLang']);
     apiKeyInput.value = data.geminiApiKey || DEFAULT_GEMINI_KEY;
+    if (langSelect && data.sttLang) langSelect.value = data.sttLang;
+
+    // Persist language selection changes
+    if (langSelect) {
+        langSelect.addEventListener('change', () => {
+            chrome.storage.local.set({ sttLang: langSelect.value });
+        });
+    }
+
+    // Auto-detect RTL/LTR direction as the user types into the textarea
+    promptInput.addEventListener('input', () => {
+        if (promptInput.value) applyDir(promptInput, promptInput.value);
+    });
 
     // The popup is a real Chrome window — only the Close button shuts it.
     // Stay open across focus changes (the previous default popup would
@@ -167,6 +256,74 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     };
+
+    // ── Mic / STT button ──────────────────────────────────────────────────────
+    let mediaRecorder = null;
+    let audioChunks = [];
+
+    const setSttStatus = (msg, color) => {
+        sttStatus.textContent = msg;
+        sttStatus.style.color = color || "#64748b";
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+        micBtn.classList.remove("recording");
+        micBtn.title = "Record voice prompt";
+    };
+
+    micBtn.addEventListener("click", async () => {
+        if (micBtn.classList.contains("recording")) {
+            stopRecording();
+            return;
+        }
+
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+            setSttStatus("Paste a Gemini API key first.", "#ef4444");
+            return;
+        }
+
+        let stream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e) {
+            setSttStatus("Mic access denied: " + e.message, "#ef4444");
+            return;
+        }
+
+        audioChunks = [];
+        const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+            ? "audio/webm;codecs=opus" : "audio/webm";
+        mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+
+        mediaRecorder.onstop = async () => {
+            stream.getTracks().forEach(t => t.stop());
+            setSttStatus("Transcribing with Gemini…", "#0ea5e9");
+            micBtn.disabled = true;
+            try {
+                const blob = new Blob(audioChunks, { type: mimeType });
+                // Pass a language hint if the user has previously spoken and we
+                // detected a language from normalization (stored on the element).
+                const hint = langSelect ? langSelect.value || null : null;
+                const text = await transcribeWithGemini(blob, apiKey, hint);
+                promptInput.value = text;
+                applyDir(promptInput, text);
+                setSttStatus("✓ Transcription done", "#22c55e");
+            } catch (e) {
+                setSttStatus("Transcription error: " + e.message, "#ef4444");
+            } finally {
+                micBtn.disabled = false;
+            }
+        };
+
+        mediaRecorder.start();
+        micBtn.classList.add("recording");
+        micBtn.title = "Click to stop recording";
+        setSttStatus("● Recording… click mic to stop", "#ef4444");
+    });
 
     runBtn.addEventListener('click', async () => {
         const prompt = promptInput.value.trim();

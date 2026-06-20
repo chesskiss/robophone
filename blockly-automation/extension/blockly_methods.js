@@ -1155,6 +1155,11 @@
 
         // Try to write `value` into one specific field <g>. Returns {ok, kind?, why?}.
         _domTrySlot: async function (g, value) {
+            // Normalize common ASCII operator aliases to the Unicode symbols
+            // Blockly's MATH_ARITHMETIC dropdown actually uses.
+            const OPERATOR_ALIASES = { '*': '×', 'x': '×', '/': '÷', '**': '^' };
+            const rawForAlt = value.trim();
+            if (OPERATOR_ALIASES[rawForAlt]) value = OPERATOR_ALIASES[rawForAlt];
             const isNumeric = value.trim() !== "" && !isNaN(Number(value));
             const before = g.textContent.trim();
             const r = g.getBoundingClientRect();
@@ -1176,7 +1181,7 @@
                     match = items.find(m => {
                         const img = m.querySelector('img');
                         if (!img) return false;
-                        if (img.alt && img.alt.toLowerCase() === want) return true;
+                        if (img.alt && (img.alt.toLowerCase() === want || img.alt.toLowerCase() === rawForAlt.toLowerCase())) return true;
                         // Color/icon dropdowns (RESET_GRAPH, GRAPH, LEDs...):
                         // the option's meaning lives in the image FILENAME,
                         // e.g. /static/images/red.png — the alt is just "*".

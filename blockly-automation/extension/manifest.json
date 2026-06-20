@@ -6,7 +6,9 @@
     "permissions": [
         "activeTab",
         "scripting",
-        "storage"
+        "storage",
+        "microphone",
+        "downloads"
     ],
     "host_permissions": [
         "https://generativelanguage.googleapis.com/*",
