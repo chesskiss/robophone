@@ -2256,6 +2256,7 @@ function:
     - supply min/max/step values
   avoid_when:
     - computed expression → use math_expression/math_operation
+    - mathematical constants (π, e, φ, √2) → use MATH_CONSTANT instead; NEVER hardcode 3.14159 or 2.71828
 inputs:
   - number literal
 outputs: number
@@ -2264,6 +2265,46 @@ instruction_template:
   - Drag Integer Value into numeric socket
   - Type number
 example_task: Use 360 as loop max.
+```
+
+## Mathematical Constant
+
+```yaml
+block_id: math_constant
+block_name: Mathematical Constant
+category: math
+msg_key: MATH_CONSTANT
+html_category: Math
+html_label: "π"
+html_match_fragments: ["π"]
+type: value
+visual_signature: green constant block; dropdown with π, e, φ, sqrt(2), sqrt(1/2), ∞
+function:
+  summary: Provides a named mathematical constant as a value.
+  use_when:
+    - any formula involving π (pi), e (Euler's number), φ (golden ratio), √2
+    - frequency expressed as a multiple of π (e.g. 0.5π, 2π)
+    - ALWAYS prefer over MATH_NUMBER with a hardcoded approximation
+  avoid_when:
+    - arbitrary user-supplied number → use MATH_NUMBER
+inputs:
+  - constant: π / e / φ / sqrt(2) / sqrt(1/2) / ∞
+outputs: number
+instruction_template:
+  - Go to Math
+  - Drag Mathematical Constant
+  - Choose constant from dropdown (π, e, φ, etc.)
+example_task: Use π as the frequency multiplier for a sine wave.
+example_script: |
+  # sin(frequency * π * angleDeg / 180) with frequency=0.5:
+  spawn MATH_ARITHMETIC id=freq_arg parent=sin_calc pos=nested cat=["CATMATH"]
+  input freq_arg value="*"
+  spawn MATH_ARITHMETIC id=half_pi parent=freq_arg pos=nested cat=["CATMATH"]
+  input half_pi value="*"
+  spawn MATH_NUMBER id=freq_val parent=half_pi pos=nested cat=["CATMATH"]
+  input freq_val value="0.5"
+  spawn MATH_CONSTANT id=pi_block parent=half_pi pos=nested cat=["CATMATH"]
+  input pi_block value="π"
 ```
 
 ## Operation (2 values)

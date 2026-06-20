@@ -388,11 +388,16 @@
         },
 
         _matchOption: function (options, raw) {
-            const want = raw.trim().toLowerCase();
+            const OPERATOR_ALIASES = { '*': '×', 'x': '×', '/': '÷', '**': '^' };
+            const trimmed = raw.trim();
+            const want = (OPERATOR_ALIASES[trimmed] || trimmed).toLowerCase();
+            const wantRaw = trimmed.toLowerCase();
             for (const opt of options) {
                 if (!Array.isArray(opt) || opt.length < 2) continue;
-                if (this._optionLabel(opt[0]).trim().toLowerCase() === want) return opt[1];
-                if (String(opt[1]).trim().toLowerCase() === want) return opt[1];
+                const label = this._optionLabel(opt[0]).trim().toLowerCase();
+                const val = String(opt[1]).trim().toLowerCase();
+                if (label === want || label === wantRaw) return opt[1];
+                if (val === want || val === wantRaw) return opt[1];
             }
             return undefined;
         },
