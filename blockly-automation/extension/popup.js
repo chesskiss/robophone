@@ -141,146 +141,253 @@ async function transcribeWithGemini(blob, apiKey, langHint) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const runBtn = document.getElementById('runBtn');
-    const testBtn = document.getElementById('testBtn');
-    const closeBtn = document.getElementById('closeBtn');
-    const micBtn = document.getElementById('micBtn');
-    const sttStatus = document.getElementById('sttStatus');
-    const langSelect = document.getElementById('langSelect');
+    const sendBtn     = document.getElementById('sendBtn');
+    const clearWsBtn  = document.getElementById('clearWsBtn');
+    const testBtn     = document.getElementById('testBtn');
+    const closeBtn    = document.getElementById('closeBtn');
+    const gearBtn     = document.getElementById('gearBtn');
+    const micBtn      = document.getElementById('micBtn');
+    const sttStatus   = document.getElementById('sttStatus');
+    const langSelect  = document.getElementById('langSelect');
     const promptInput = document.getElementById('prompt');
     const apiKeyInput = document.getElementById('apiKey');
-    const statusDiv = document.getElementById('status');
-    const statusMsg = document.getElementById('statusMsg');
-    const actionList = document.getElementById('actionList');
+    const apiPanel    = document.getElementById('apiPanel');
+    const chatHistory = document.getElementById('chatHistory');
 
-    // Load saved API Key and language preference
-    const data = await chrome.storage.local.get(['geminiApiKey', 'sttLang']);
-    apiKeyInput.value = data.geminiApiKey || DEFAULT_GEMINI_KEY;
-    if (langSelect && data.sttLang) langSelect.value = data.sttLang;
+    // Load saved settings
+    const stored = await chrome.storage.local.get(['geminiApiKey', 'sttLang']);
+    apiKeyInput.value = stored.geminiApiKey || DEFAULT_GEMINI_KEY;
+    if (langSelect && stored.sttLang) langSelect.value = stored.sttLang;
 
-    // Persist language selection changes
     if (langSelect) {
         langSelect.addEventListener('change', () => {
             chrome.storage.local.set({ sttLang: langSelect.value });
         });
     }
 
-    // Auto-detect RTL/LTR direction as the user types into the textarea
+    if (closeBtn) closeBtn.addEventListener('click', () => window.close());
+
+    if (gearBtn) {
+        gearBtn.addEventListener('click', () => {
+            apiPanel.classList.toggle('hidden');
+            if (!apiPanel.classList.contains('hidden')) apiKeyInput.focus();
+        });
+    }
+
+    apiKeyInput.addEventListener('change', () => {
+        const key = apiKeyInput.value.trim();
+        if (key) chrome.storage.local.set({ geminiApiKey: key });
+    });
+
     promptInput.addEventListener('input', () => {
         if (promptInput.value) applyDir(promptInput, promptInput.value);
     });
 
-    // The popup is a real Chrome window — only the Close button shuts it.
-    // Stay open across focus changes (the previous default popup would
-    // auto-close when the user clicked back into the Blockly page).
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => window.close());
+    // Send on Enter (Shift+Enter inserts newline)
+    promptInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendBtn.click();
+        }
+    });
+
+    // ── Chat helpers ──────────────────────────────────────────────────────────
+
+    function appendMessage(role, text, meta, isError) {
+        const msg = document.createElement('div');
+        msg.className = 'msg ' + role;
+
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble' + (isError ? ' error' : '');
+        bubble.textContent = text;
+        msg.appendChild(bubble);
+
+        if (meta) {
+            const metaEl = document.createElement('div');
+            metaEl.className = 'msg-meta';
+            metaEl.textContent = meta;
+            msg.appendChild(metaEl);
+        }
+
+        chatHistory.appendChild(msg);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+        return msg;
     }
 
-    const showStatus = (text, cls) => {
-        statusDiv.classList.remove('hidden');
-        statusMsg.innerText = text;
-        statusMsg.className = cls || "";
-    };
+    let typingEl = null;
+
+    function showTyping() {
+        typingEl = appendMessage('ai', '…');
+        typingEl.querySelector('.bubble').classList.add('typing');
+    }
+
+    function hideTyping() {
+        if (typingEl && typingEl.parentNode) typingEl.parentNode.removeChild(typingEl);
+        typingEl = null;
+    }
 
     const setBusy = (busy) => {
-        runBtn.disabled = busy;
+        sendBtn.disabled = busy;
+        clearWsBtn.disabled = busy;
         if (testBtn) testBtn.disabled = busy;
     };
 
-    // Shared response handling for both the Gemini flow and the direct test.
-    const handleResponse = (response) => {
-        setBusy(false);
-        // Surface SW disconnects / dropped responses instead of hanging
-        // forever. chrome.runtime.lastError is set when the service worker
-        // dies before sendResponse fires.
-        if (chrome.runtime.lastError) {
-            showStatus("Service worker error: " + chrome.runtime.lastError.message, "error");
+    async function requireTab() {
+        const tabId = await resolveTargetTabId();
+        if (tabId == null) {
+            appendMessage('system', '⚠ Could not find a Robo-Phone tab. Open https://staging.code.robo-phone.com/home in a tab and try again.');
+        }
+        return tabId;
+    }
+
+    // ── Send button ───────────────────────────────────────────────────────────
+
+    sendBtn.addEventListener('click', async () => {
+        const prompt = promptInput.value.trim();
+        const apiKey = apiKeyInput.value.trim();
+
+        if (!apiKey) {
+            appendMessage('system', '⚙ Click the gear icon to enter your Gemini API key.');
+            apiPanel.classList.remove('hidden');
+            apiKeyInput.focus();
             return;
         }
-        if (!response) {
-            showStatus("No response from background. Open chrome://extensions → 'Service worker' to inspect logs.", "error");
-            return;
-        }
-        if (response.error) {
-            showStatus("Error: " + response.error, "error");
-        } else if (response.status === "success") {
-            const cnt = response.commandsEmitted;
-            const placed = response.blocksPlaced;
-            const stats = response.spawnStats ? `, spawns api:${response.spawnStats.api} drag:${response.spawnStats.drag}` : "";
-            const mode = response.placementMode ? ` [${response.placementMode} mode${stats}]` : "";
-            const warnings = response.warnings || [];
-            const normalization = response.normalization || null;
-            const warnNote = warnings.length ? ` ⚠ ${warnings.length} field warning(s) — see below.` : "";
-            showStatus(
-                (typeof cnt === "number")
-                    ? `Success! ${cnt} command(s) executed${(typeof placed === "number") ? `, ${placed} block(s) placed` : ""}.${mode}${warnNote}`
-                    : "Success! Actions completed:",
-                "success"
-            );
-            if (normalization) {
-                const lang = document.createElement('li');
-                lang.innerText = `🌐 detected language: ${normalization.detectedLanguage} (confidence ${normalization.confidence})`;
-                actionList.appendChild(lang);
-                const normalized = document.createElement('li');
-                normalized.innerText = `📝 normalized prompt: ${normalization.normalizedEnglish}`;
-                actionList.appendChild(normalized);
-                if (normalization.usedFallback || normalization.notes) {
-                    const note = document.createElement('li');
-                    note.innerText = `ℹ normalization notes: ${normalization.notes || "used original prompt fallback"}`;
-                    note.style.color = "#1d4ed8";
-                    actionList.appendChild(note);
+        if (!prompt) return;
+
+        const tabId = await requireTab();
+        if (tabId == null) return;
+
+        await chrome.storage.local.set({ geminiApiKey: apiKey });
+
+        appendMessage('user', prompt);
+        promptInput.value = '';
+        setBusy(true);
+        showTyping();
+        const t0 = Date.now();
+
+        chrome.runtime.sendMessage(
+            { action: "SEND_PROMPT_TO_GEMINI", prompt, apiKey, tabId },
+            (response) => {
+                hideTyping();
+                setBusy(false);
+                const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+
+                if (chrome.runtime.lastError) {
+                    appendMessage('ai', 'Service worker error: ' + chrome.runtime.lastError.message, null, true);
+                    return;
+                }
+                if (!response) {
+                    appendMessage('ai', 'No response from background. Check the service worker console.', null, true);
+                    return;
+                }
+                if (response.error) {
+                    appendMessage('ai', 'Error: ' + response.error, null, true);
+                    return;
+                }
+                if (response.status === 'success') {
+                    const blocks  = response.blocksPlaced || 0;
+                    const tokens  = response.tokenCount   || 0;
+                    const cmds    = response.commandsEmitted || 0;
+                    const warnings = response.warnings || [];
+                    const text = `Done — ${cmds} command(s), ${blocks} block(s) placed.` +
+                        (warnings.length ? ` ⚠ ${warnings.length} field warning(s).` : '');
+                    const meta = `⏱ ${elapsed}s · ${tokens.toLocaleString()} tokens · ${blocks} blocks`;
+                    appendMessage('ai', text, meta);
+                    if (warnings.length) {
+                        appendMessage('system', warnings.slice(0, 5).join('\n'));
+                    }
+                } else if (response.message) {
+                    appendMessage('ai', response.message, `⏱ ${elapsed}s`);
                 }
             }
-            (response.actions || []).forEach(action => {
-                const li = document.createElement('li');
-                li.innerText = action;
-                actionList.appendChild(li);
-            });
-            warnings.forEach(w => {
-                const li = document.createElement('li');
-                li.innerText = "⚠ " + w;
-                li.style.color = "#b45309";
-                actionList.appendChild(li);
-            });
-        } else if (response.message) {
-            showStatus(response.message, "");
-            const normalization = response.normalization || null;
-            if (normalization) {
-                const lang = document.createElement('li');
-                lang.innerText = `🌐 detected language: ${normalization.detectedLanguage} (confidence ${normalization.confidence})`;
-                actionList.appendChild(lang);
-                const normalized = document.createElement('li');
-                normalized.innerText = `📝 normalized prompt: ${normalization.normalizedEnglish}`;
-                actionList.appendChild(normalized);
+        );
+    });
+
+    // ── Clear Workspace button ────────────────────────────────────────────────
+
+    clearWsBtn.addEventListener('click', async () => {
+        const tabId = await requireTab();
+        if (tabId == null) return;
+
+        setBusy(true);
+        chrome.runtime.sendMessage({ action: "CLEAR_WORKSPACE", tabId }, (response) => {
+            setBusy(false);
+            if (chrome.runtime.lastError || !response) {
+                appendMessage('system', '⚠ Could not clear workspace: ' + (chrome.runtime.lastError?.message || 'no response'));
+                return;
             }
-        }
-    };
+            if (response.error) {
+                appendMessage('system', '⚠ Clear failed: ' + response.error);
+                return;
+            }
+            appendMessage('system', '🗑 Workspace cleared — session reset.');
+        });
+    });
+
+    // ── Test button ───────────────────────────────────────────────────────────
+
+    if (testBtn) {
+        testBtn.addEventListener('click', async () => {
+            const tabId = await requireTab();
+            if (tabId == null) return;
+
+            appendMessage('user', `[Built-in test script — ${DIRECT_TEST_SCRIPT.length} commands]`);
+            setBusy(true);
+            showTyping();
+            const t0 = Date.now();
+
+            chrome.runtime.sendMessage(
+                { action: "RUN_DIRECT_SCRIPT", script: DIRECT_TEST_SCRIPT, tabId },
+                (response) => {
+                    hideTyping();
+                    setBusy(false);
+                    const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+                    if (chrome.runtime.lastError || !response) {
+                        appendMessage('ai', 'Error: ' + (chrome.runtime.lastError?.message || 'no response'), null, true);
+                        return;
+                    }
+                    if (response.error) {
+                        appendMessage('ai', 'Error: ' + response.error, null, true);
+                        return;
+                    }
+                    if (response.status === 'success') {
+                        const blocks = response.blocksPlaced || 0;
+                        appendMessage('ai',
+                            `Test done — ${response.commandsEmitted || 0} commands, ${blocks} blocks placed.`,
+                            `⏱ ${elapsed}s · ${blocks} blocks`
+                        );
+                    }
+                }
+            );
+        });
+    }
 
     // ── Mic / STT button ──────────────────────────────────────────────────────
+
     let mediaRecorder = null;
-    let audioChunks = [];
+    let audioChunks   = [];
 
     const setSttStatus = (msg, color) => {
         sttStatus.textContent = msg;
-        sttStatus.style.color = color || "#64748b";
+        sttStatus.style.color = color || '#64748b';
     };
 
     const stopRecording = () => {
-        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
-        micBtn.classList.remove("recording");
-        micBtn.title = "Record voice prompt";
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+        micBtn.classList.remove('recording');
+        micBtn.title = 'Record voice prompt';
     };
 
-    micBtn.addEventListener("click", async () => {
-        if (micBtn.classList.contains("recording")) {
+    micBtn.addEventListener('click', async () => {
+        if (micBtn.classList.contains('recording')) {
             stopRecording();
             return;
         }
 
         const apiKey = apiKeyInput.value.trim();
         if (!apiKey) {
-            setSttStatus("Paste a Gemini API key first.", "#ef4444");
+            setSttStatus('Enter a Gemini API key first.', '#ef4444');
+            apiPanel.classList.remove('hidden');
             return;
         }
 
@@ -288,88 +395,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         } catch (e) {
-            setSttStatus("Mic access denied: " + e.message, "#ef4444");
+            setSttStatus('Mic access denied: ' + e.message, '#ef4444');
             return;
         }
 
         audioChunks = [];
-        const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-            ? "audio/webm;codecs=opus" : "audio/webm";
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus' : 'audio/webm';
         mediaRecorder = new MediaRecorder(stream, { mimeType });
 
         mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
 
         mediaRecorder.onstop = async () => {
             stream.getTracks().forEach(t => t.stop());
-            setSttStatus("Transcribing with Gemini…", "#0ea5e9");
+            setSttStatus('Transcribing with Gemini…', '#0ea5e9');
             micBtn.disabled = true;
             try {
                 const blob = new Blob(audioChunks, { type: mimeType });
-                // Pass a language hint if the user has previously spoken and we
-                // detected a language from normalization (stored on the element).
                 const hint = langSelect ? langSelect.value || null : null;
                 const text = await transcribeWithGemini(blob, apiKey, hint);
                 promptInput.value = text;
                 applyDir(promptInput, text);
-                setSttStatus("✓ Transcription done", "#22c55e");
+                setSttStatus('✓ Transcription done', '#22c55e');
             } catch (e) {
-                setSttStatus("Transcription error: " + e.message, "#ef4444");
+                setSttStatus('Transcription error: ' + e.message, '#ef4444');
             } finally {
                 micBtn.disabled = false;
             }
         };
 
         mediaRecorder.start();
-        micBtn.classList.add("recording");
-        micBtn.title = "Click to stop recording";
-        setSttStatus("● Recording… click mic to stop", "#ef4444");
+        micBtn.classList.add('recording');
+        micBtn.title = 'Click to stop recording';
+        setSttStatus('● Recording… click mic to stop', '#ef4444');
     });
-
-    runBtn.addEventListener('click', async () => {
-        const prompt = promptInput.value.trim();
-        const apiKey = apiKeyInput.value.trim();
-
-        if (!prompt || !apiKey) {
-            alert('Please provide both an API Key and a prompt.');
-            return;
-        }
-
-        const tabId = await resolveTargetTabId();
-        if (tabId == null) {
-            showStatus("Couldn't find a Robo-Phone tab to automate. Open https://staging.code.robo-phone.com/home in another tab and click Run again.", "error");
-            return;
-        }
-
-        // Save API Key
-        await chrome.storage.local.set({ geminiApiKey: apiKey });
-
-        setBusy(true);
-        actionList.innerHTML = "";
-        showStatus("Connecting to Gemini... (this can take 30-90s while it plans against the manual)");
-
-        chrome.runtime.sendMessage({
-            action: "SEND_PROMPT_TO_GEMINI",
-            prompt: prompt,
-            apiKey: apiKey,
-            tabId: tabId
-        }, handleResponse);
-    });
-
-    if (testBtn) {
-        testBtn.addEventListener('click', async () => {
-            const tabId = await resolveTargetTabId();
-            if (tabId == null) {
-                showStatus("Couldn't find a Robo-Phone tab to automate. Open https://staging.code.robo-phone.com/home in another tab and click again.", "error");
-                return;
-            }
-            setBusy(true);
-            actionList.innerHTML = "";
-            showStatus(`Running built-in test script (${DIRECT_TEST_SCRIPT.length} commands, no LLM)...`);
-            chrome.runtime.sendMessage({
-                action: "RUN_DIRECT_SCRIPT",
-                script: DIRECT_TEST_SCRIPT,
-                tabId: tabId
-            }, handleResponse);
-        });
-    }
 });

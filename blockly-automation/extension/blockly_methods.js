@@ -294,17 +294,18 @@
         // Bumped on every code change. The background probe compares this
         // against its expected version and re-injects fresh files when the
         // page is still holding scripts from before an extension reload.
-        VERSION: "15.8",
+        VERSION: "15.9",
 
         CAP_BLOCKS: CAP_BLOCKS,
 
         // --- PUBLIC API ---
 
         /**
-         * Clears the workspace and then executes the list of commands.
+         * Executes the list of commands, optionally clearing first.
          * @param {Array} commandList - The JSON script from the LLM.
+         * @param {Object} options - { clearFirst, persistentIdMap }
          */
-        execute: async function (commandList) {
+        execute: async function (commandList, options) {
             // Concurrency latch — two interleaved runs on the same workspace
             // (double-click on Run, overlapping popup messages) corrupt each
             // other's pre/post scans and drag state machines.
@@ -314,20 +315,28 @@
                     ok: false,
                     error: "Another script is already executing on this workspace. Wait for it to finish and run again.",
                     commandsExecuted: 0,
-                    spawnedCount: 0
+                    spawnedCount: 0,
+                    idMap: {}
                 };
             }
             this._executing = true;
             try {
-                return await this._executeImpl(commandList);
+                return await this._executeImpl(commandList, options);
             } finally {
                 this._executing = false;
             }
         },
 
-        _executeImpl: async function (commandList) {
-            console.log("🧹 Clearing Workspace...");
-            await this.clearPage();
+        _executeImpl: async function (commandList, options) {
+            const { clearFirst = false, persistentIdMap = {} } = options || {};
+
+            // Clear if caller requests it OR if the first command is { action:"clear" }
+            const firstIsClear = Array.isArray(commandList) && commandList.length > 0 && commandList[0].action === 'clear';
+            if (clearFirst || firstIsClear) {
+                console.log("🧹 Clearing Workspace...");
+                await this.clearPage();
+                if (firstIsClear) commandList = commandList.slice(1);
+            }
 
             // Reset the API engine's per-run state (field cursors, block
             // registry, cached workspace handle) and announce which placement
@@ -352,7 +361,8 @@
             console.log(JSON.stringify(commandList, null, 2));
 
             console.log("📜 Executing Script...", commandList);
-            const idMap = new Map();
+            // Seed from persistent map so modify/remove can reference blocks from prior turns
+            const idMap = new Map(Object.entries(persistentIdMap));
             // Track each logical id's BLOCK KEY so we can detect cap parents
             // and override `pos: 'next'` to `pos: 'nested'` (caps have no
             // 'next' connector — children chain into the body via 'nested').
@@ -377,6 +387,10 @@
                     console.log(`▶️  ${stepLabel}  SPAWN '${cmd.block}'  id='${cmd.id || "<none>"}'  parent='${cmd.parent || "<root>"}'  pos='${cmd.pos || "nested"}'  cat=${JSON.stringify(cmd.cat || [])}`);
                 } else if (cmd.action === "input") {
                     console.log(`▶️  ${stepLabel}  INPUT into '${cmd.block}'  value=${JSON.stringify(cmd.value)}`);
+                } else if (cmd.action === "modify") {
+                    console.log(`▶️  ${stepLabel}  MODIFY '${cmd.block}'  value=${JSON.stringify(cmd.value)}`);
+                } else if (cmd.action === "remove") {
+                    console.log(`▶️  ${stepLabel}  REMOVE '${cmd.block}'`);
                 } else {
                     console.log(`▶️  ${stepLabel}  ${cmd.action} ${JSON.stringify(cmd)}`);
                 }
@@ -426,6 +440,37 @@
                             inputFailures.push({ block: cmd.block, value: String(cmd.value), why: inputErr.message });
                             console.warn(`⚠️ ${stepLabel} input '${cmd.value}' on '${cmd.block}' FAILED — continuing with the rest of the script. Reason: ${inputErr.message}`);
                         }
+                    } else if (cmd.action === "modify") {
+                        const runtimeId = idMap.get(cmd.block);
+                        if (!runtimeId) throw new Error(`Modify target '${cmd.block}' not found in idMap.`);
+                        console.log(`   resolved modify target logical '${cmd.block}' -> runtime '${runtimeId}'`);
+                        try {
+                            await this._handleInput(runtimeId, cmd.value);
+                            commandsExecuted += 1;
+                            console.log(`✅ ${stepLabel} DONE — modified '${cmd.block}' to value '${cmd.value}'`);
+                        } catch (inputErr) {
+                            inputFailures.push({ block: cmd.block, value: String(cmd.value), why: inputErr.message });
+                            console.warn(`⚠️ ${stepLabel} modify '${cmd.value}' on '${cmd.block}' FAILED: ${inputErr.message}`);
+                        }
+                    } else if (cmd.action === "remove") {
+                        const runtimeId = idMap.get(cmd.block);
+                        if (!runtimeId) throw new Error(`Remove target '${cmd.block}' not found in idMap.`);
+                        console.log(`   resolved remove target logical '${cmd.block}' -> runtime '${runtimeId}'`);
+                        const engine = window.BlocklyApiEngine;
+                        const ws = engine && engine.getWorkspace ? engine.getWorkspace() : null;
+                        let blk = ws && ws.getBlockById ? ws.getBlockById(runtimeId) : null;
+                        if (!blk && engine && engine.blocksById) {
+                            const reg = engine.blocksById.get(runtimeId);
+                            blk = (reg && !reg.disposed) ? reg : null;
+                        }
+                        if (blk) {
+                            blk.dispose(true);
+                            idMap.delete(cmd.block);
+                            console.log(`✅ ${stepLabel} DONE — removed block '${cmd.block}'`);
+                        } else {
+                            console.warn(`⚠️ ${stepLabel} remove '${cmd.block}': block not found in workspace — skipping.`);
+                        }
+                        commandsExecuted += 1;
                     }
                 } catch (e) {
                     console.error(`❌ ${stepLabel} FAILED: ${e.message}`);
@@ -436,7 +481,8 @@
                         spawnedCount,
                         placementMode,
                         spawnStats: { ...this._spawnStats },
-                        inputFailures
+                        inputFailures,
+                        idMap: Object.fromEntries(idMap)
                     };
                 }
             }
@@ -447,7 +493,8 @@
                 spawnedCount,
                 placementMode,
                 spawnStats: { ...this._spawnStats },
-                inputFailures
+                inputFailures,
+                idMap: Object.fromEntries(idMap)
             };
         },
 

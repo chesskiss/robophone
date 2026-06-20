@@ -1,18 +1,27 @@
+// ── Session state — lives for the service-worker lifetime ────────────────────
+// Reset happens when the SW is torn down (extension reload, browser restart)
+// or when the user clicks "Clear Workspace" in the popup.
+let sessionState = {
+    conversationHistory: [],   // [{role, parts}] — multi-turn Gemini contents
+    logicalIdMap:        {},   // { logicalId: runtimeId } — persists across turns
+    cumulativeTokens:    0
+};
+
 // TOOL DECLARATIONS FOR GEMINI
 const function_declarations = [
     {
         name: "execute_blockly_script",
-        description: "Executes a sequence of actions on the Blockly workspace. Use this to spawn blocks, connect them, and enter text.",
+        description: "Executes a sequence of actions on the Blockly workspace. Use this to spawn, modify, or remove blocks and enter text.",
         parameters: {
             type: "OBJECT",
             properties: {
                 script: {
                     type: "ARRAY",
-                    description: "Ordered list of commands. Each command MUST include both 'action' and 'block'.",
+                    description: "Ordered list of commands. Each command MUST include 'action' and 'block'.",
                     items: {
                         type: "OBJECT",
                         properties: {
-                            action: { type: "STRING", enum: ["spawn", "input"], description: "Either 'spawn' (create a new block) or 'input' (fill a field on an already-spawned block)." },
+                            action: { type: "STRING", enum: ["spawn", "input", "modify", "remove", "clear"], description: "'spawn' creates a block. 'input' fills a field. 'modify' changes a field on an existing block (use its logical id). 'remove' deletes an existing block by logical id. 'clear' (first command only) clears the workspace and starts fresh." },
                             cat: {
                                 type: "ARRAY",
                                 items: { type: "STRING" },
@@ -212,7 +221,7 @@ const BLOCK_CATEGORY_MAP = {
     MATH_CHANGE: "CATVARIABLES"
 };
 
-// Listener for prompt from popup
+// Listener for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "SEND_PROMPT_TO_GEMINI") {
         handleGeminiFlow(request.prompt, request.apiKey, request.tabId)
@@ -222,6 +231,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     if (request.action === "RUN_DIRECT_SCRIPT") {
         handleDirectScript(request.script, request.tabId)
+            .then(result => sendResponse(result))
+            .catch(err => sendResponse({ error: err.message }));
+        return true;
+    }
+    if (request.action === "CLEAR_WORKSPACE") {
+        handleClearWorkspace(request.tabId)
             .then(result => sendResponse(result))
             .catch(err => sendResponse({ error: err.message }));
         return true;
@@ -284,7 +299,7 @@ async function handleDirectScript(rawScript, requestTabId) {
     console.log("📜 DIRECT SCRIPT (after normalize):\n", JSON.stringify(script, null, 2));
     if (dropped.length) console.warn("[BlocklyAgent] Dropped during normalize:", dropped);
     try {
-        const out = await executeOnPage("execute_blockly_script", { script }, requestTabId);
+        const out = await executeOnPage("execute_blockly_script", { script, options: { clearFirst: true, persistentIdMap: {} } }, requestTabId);
         const inputFailures = (out && out.result && out.result.inputFailures) || [];
         const generatedCode = await captureGeneratedCode(requestTabId);
         saveDebugLog({
@@ -348,8 +363,8 @@ async function loadRoboPhoneManual() {
 // inside it (or closes the window). Track the active popup's window id so a
 // second action click focuses the existing window instead of opening another.
 const POPUP_WIN_KEY = "blocklyPopupWindowId";
-const POPUP_WIDTH = 460;
-const POPUP_HEIGHT = 640;
+const POPUP_WIDTH  = 520;
+const POPUP_HEIGHT = 760;
 
 chrome.action.onClicked.addListener(async () => {
     try {
@@ -393,7 +408,39 @@ const GEMINI_MODEL = "gemini-2.5-flash-lite";
 // Must match BlocklyAgent.VERSION in blockly_methods.js. Bump both together —
 // executeOnPage re-injects the MAIN-world scripts whenever the page's loaded
 // version differs (pages opened before an extension reload keep stale code).
-const EXPECTED_AGENT_VERSION = "15.8";
+const EXPECTED_AGENT_VERSION = "15.9";
+
+async function handleClearWorkspace(requestTabId) {
+    // Find an injectable tab (reuses executeOnPage's resolution logic)
+    const tabId = requestTabId || null;
+    // Run clearPage() directly in the MAIN world
+    try {
+        const tabs = tabId ? [{ id: tabId }] : [];
+        // Resolve tab the same way executeOnPage does
+        let targetTabId = tabId;
+        if (!targetTabId) {
+            const list = await chrome.tabs.query({ url: ["*://*.robo-phone.com/*", "*://localhost/*", "*://localhost:*/*"] });
+            const c = list.find(t => t.active) || list[0];
+            if (c) targetTabId = c.id;
+        }
+        if (!targetTabId) throw new Error("No injectable tab found for workspace clear.");
+        await chrome.scripting.executeScript({
+            target: { tabId: targetTabId },
+            world: "MAIN",
+            func: async () => {
+                if (window.BlocklyAgent && typeof window.BlocklyAgent.clearPage === "function") {
+                    await window.BlocklyAgent.clearPage();
+                }
+            }
+        });
+    } catch (e) {
+        console.warn("[BlocklyAgent] CLEAR_WORKSPACE scripting error:", e.message);
+    }
+    // Reset session state regardless of scripting success
+    sessionState.logicalIdMap = {};
+    sessionState.conversationHistory = [];
+    return { status: "cleared" };
+}
 
 function extractGeminiTextParts(data) {
     const candidate = data?.candidates?.[0];
@@ -547,8 +594,23 @@ async function handleGeminiFlow(userPrompt, apiKey, requestTabId) {
         normalization.notes ? `Normalization notes: ${normalization.notes}` : ""
     ].filter(Boolean).join("\n");
 
+    // Build workspace context section for the system instruction
+    const existingIds = Object.keys(sessionState.logicalIdMap);
+    const wsContext = existingIds.length > 0
+        ? `\n\nEXISTING WORKSPACE BLOCKS — reference by logical ID, do not re-spawn:\n` +
+          existingIds.map(lid => `  ${lid}`).join('\n') +
+          `\nUse action="modify" to change a field on an existing block (provide its logical id and new value).\nUse action="remove" to delete an existing block (provide its logical id).\nTo start completely fresh, emit {"action":"clear"} as the very first command.`
+        : '';
+
+    // Multi-turn: prepend conversation history before the new user message
+    const currentUserContent = { role: "user", parts: [{ text: plannerPrompt }] };
+    const contents = [...sessionState.conversationHistory, currentUserContent];
+
+    // On first run (empty session), clear the workspace before placing blocks
+    const isFirstRun = existingIds.length === 0 && sessionState.conversationHistory.length === 0;
+
     const requestBody = {
-        contents: [{ role: "user", parts: [{ text: plannerPrompt }] }],
+        contents,
         tools: tools,
         // AUTO (not ANY) — the model still emits a tool call because the
         // system prompt mandates it, but it can think first. ANY forces an
@@ -569,7 +631,7 @@ async function handleGeminiFlow(userPrompt, apiKey, requestTabId) {
         system_instruction: {
             parts: [
                 {
-                    text: `You are a Blockly automation assistant for the Robo-Phone custom Blockly UI. Use the 'execute_blockly_script' tool.
+                    text: `You are a Blockly automation assistant for the Robo-Phone custom Blockly UI. Use the 'execute_blockly_script' tool.${wsContext}
 
 SCRIPT RULES:
 0. EVERY command MUST have BOTH 'action' AND 'block'. There are no exceptions.
@@ -979,7 +1041,9 @@ REFERENCE MANUAL:
         }
 
         const candidate = data.candidates[0];
-        console.log(`[BlocklyAgent] finishReason=${candidate.finishReason} usageMetadata=${JSON.stringify(data.usageMetadata)}`);
+        const tokenCount = data?.usageMetadata?.totalTokenCount || 0;
+        sessionState.cumulativeTokens += tokenCount;
+        console.log(`[BlocklyAgent] finishReason=${candidate.finishReason} tokens=${tokenCount} cumulative=${sessionState.cumulativeTokens}`);
         if (!candidate.content || !Array.isArray(candidate.content.parts)) {
             console.error("[BlocklyAgent] Candidate has no content.parts. Full candidate:", candidate);
             const reason = candidate.finishReason || "unknown";
@@ -1018,7 +1082,7 @@ REFERENCE MANUAL:
                 const raw = args.script || [];
                 rawScripts.push(raw);
                 const rawCount = raw.length;
-                const { script: normalizedScript, dropped } = normalizeGeneratedScript(raw);
+                const { script: normalizedScript, dropped } = normalizeGeneratedScript(raw, Object.keys(sessionState.logicalIdMap));
                 args.script = normalizedScript;
                 allDropped.push(...dropped);
                 allNormalizedScripts.push(normalizedScript);
@@ -1031,6 +1095,11 @@ REFERENCE MANUAL:
                 } else if (normalizedScript.length === 1 && normalizedScript[0].block === "INITIATE") {
                     console.warn("[BlocklyAgent] Model only emitted INITIATE.");
                 }
+                // Pass options so the executor knows current idMap and whether to clear
+                args.options = {
+                    clearFirst: isFirstRun,
+                    persistentIdMap: { ...sessionState.logicalIdMap }
+                };
             }
             try {
                 const out = await executeOnPage(name, args, requestTabId);
@@ -1046,6 +1115,10 @@ REFERENCE MANUAL:
                 if (out && out.result && Array.isArray(out.result.inputFailures)) {
                     allInputFailures.push(...out.result.inputFailures);
                 }
+                // Persist updated idMap so the next turn knows all logical IDs
+                if (out && out.result && out.result.idMap) {
+                    sessionState.logicalIdMap = { ...out.result.idMap };
+                }
             } catch (execErr) {
                 // Attach diagnostics so the popup can show WHY nothing was placed.
                 const diag = {
@@ -1058,6 +1131,12 @@ REFERENCE MANUAL:
                 throw execErr;
             }
         }
+
+        // Store this turn in conversation history for multi-turn context
+        sessionState.conversationHistory.push(
+            currentUserContent,
+            { role: "model", parts: [{ text: `[Placed ${totalSpawnedCount} blocks via ${totalCommandsSent} command(s)]` }] }
+        );
 
         const generatedCode = await captureGeneratedCode(requestTabId);
         saveDebugLog({
@@ -1079,7 +1158,9 @@ REFERENCE MANUAL:
             placementMode: lastPlacementMode,
             spawnStats: lastSpawnStats,
             warnings: allInputFailures.map(f => `field input "${f.value}" on '${f.block}' failed: ${f.why}`),
-            normalization
+            normalization,
+            tokenCount: tokenCount,
+            cumulativeTokens: sessionState.cumulativeTokens
         };
 
     } catch (error) {
@@ -1089,11 +1170,10 @@ REFERENCE MANUAL:
     }
 }
 
-// Returns { script, dropped }. The drop log is surfaced into the popup
-// when execution succeeds but produced 0 blocks, so the user sees WHICH
-// LLM commands were rejected and why.
-function normalizeGeneratedScript(script) {
-    const knownIds = new Set();
+// Returns { script, dropped }. existingIds pre-seeds the known-id set with
+// logical IDs from previous turns so modify/remove commands aren't dropped.
+function normalizeGeneratedScript(script, existingIds) {
+    const knownIds = existingIds ? new Set(existingIds) : new Set();
     const dropped = [];
     const out = [];
 
@@ -1185,6 +1265,33 @@ function normalizeGeneratedScript(script) {
                 continue;
             }
             out.push(normalized);
+            continue;
+        }
+
+        if (normalized.action === "modify") {
+            if (normalized.value === undefined || normalized.value === null) {
+                dropped.push({ reason: "modify missing 'value'", command }); continue;
+            }
+            normalized.value = String(normalized.value);
+            const target = normalized.block;
+            if (!target || !knownIds.has(target)) {
+                dropped.push({ reason: `modify targets unknown id '${target}'`, command }); continue;
+            }
+            out.push(normalized);
+            continue;
+        }
+
+        if (normalized.action === "remove") {
+            const target = normalized.block;
+            if (!target || !knownIds.has(target)) {
+                dropped.push({ reason: `remove targets unknown id '${target}'`, command }); continue;
+            }
+            out.push(normalized);
+            continue;
+        }
+
+        if (normalized.action === "clear") {
+            out.push({ action: "clear" });
             continue;
         }
 
@@ -1353,7 +1460,7 @@ async function executeOnPage(method, args, preferredTabId) {
                         return { ok: false, error: "BlocklyAgent not loaded in MAIN world (injection failed)." };
                     }
                     try {
-                        return await window.BlocklyAgent.execute(argsObj.script);
+                        return await window.BlocklyAgent.execute(argsObj.script, argsObj.options);
                     } catch (e) {
                         return { ok: false, error: String(e && e.message || e) };
                     }
