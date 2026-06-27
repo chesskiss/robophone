@@ -287,6 +287,24 @@ async function captureGeneratedCode(tabId) {
     } catch (_) { return null; }
 }
 
+async function captureWorkspaceState(tabId, reverseIdMap) {
+    if (!tabId) return null;
+    try {
+        const results = await chrome.scripting.executeScript({
+            target: { tabId },
+            world: "MAIN",
+            func: (rtl) => {
+                if (window.BlocklyApiEngine && typeof window.BlocklyApiEngine.getWorkspaceState === 'function') {
+                    return window.BlocklyApiEngine.getWorkspaceState(rtl);
+                }
+                return null;
+            },
+            args: [reverseIdMap]
+        });
+        return (results && results[0] && results[0].result) || null;
+    } catch (_) { return null; }
+}
+
 // Direct-run path for testing: same normalize + execute pipeline as the
 // Gemini flow, just without the LLM round-trip. Lets the popup's test button
 // exercise block placement deterministically.
@@ -408,7 +426,7 @@ const GEMINI_MODEL = "gemini-2.5-flash-lite";
 // Must match BlocklyAgent.VERSION in blockly_methods.js. Bump both together —
 // executeOnPage re-injects the MAIN-world scripts whenever the page's loaded
 // version differs (pages opened before an extension reload keep stale code).
-const EXPECTED_AGENT_VERSION = "15.9";
+const EXPECTED_AGENT_VERSION = "16.0";
 
 async function handleClearWorkspace(requestTabId) {
     // Find an injectable tab (reuses executeOnPage's resolution logic)
@@ -596,11 +614,14 @@ async function handleGeminiFlow(userPrompt, apiKey, requestTabId) {
 
     // Build workspace context section for the system instruction
     const existingIds = Object.keys(sessionState.logicalIdMap);
-    const wsContext = existingIds.length > 0
-        ? `\n\nEXISTING WORKSPACE BLOCKS — reference by logical ID, do not re-spawn:\n` +
-          existingIds.map(lid => `  ${lid}`).join('\n') +
-          `\nUse action="modify" to change a field on an existing block (provide its logical id and new value).\nUse action="remove" to delete an existing block (provide its logical id).\nTo start completely fresh, emit {"action":"clear"} as the very first command.`
-        : '';
+    let wsContext = '';
+    if (existingIds.length > 0) {
+        const reverseIdMap = Object.fromEntries(
+            Object.entries(sessionState.logicalIdMap).map(([lid, rid]) => [rid, lid])
+        );
+        const wsState = await captureWorkspaceState(requestTabId, reverseIdMap);
+        wsContext = `\n\nCURRENT WORKSPACE STATE (each line: logicalId: block_type (fields)):\n${wsState || existingIds.map(id => `  ${id}: (unknown)`).join('\n')}\n\nEdit rules:\n- Use action="modify" with the block's logical id to change a field value in-place (e.g. to change amplitude from 5 to 10, emit modify on the MATH_NUMBER block whose NUM=5).\n- Use action="remove" to delete a block and all its children. Then spawn replacements as needed.\n- Use action="spawn" with parent/pos to ADD new blocks without clearing the workspace.\n- Only emit commands for what actually needs to change — leave all other blocks untouched.\n- To start completely fresh, emit {"action":"clear"} as the very first command.`;
+    }
 
     // Multi-turn: prepend conversation history before the new user message
     const currentUserContent = { role: "user", parts: [{ text: plannerPrompt }] };

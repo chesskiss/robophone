@@ -505,6 +505,78 @@
             return { ok: res.ok, kind: res.kind, why: res.why, fieldName: (slot.field.name || slot.slotId) + ownerNote };
         },
 
+        // ---- workspace state serialization ------------------------------------
+
+        // Returns a compact, human-readable text tree of the current workspace.
+        // runtimeToLogical: { runtimeBlockId -> logicalId } so the LLM can see
+        // its own labels instead of opaque Blockly-generated IDs.
+        getWorkspaceState: function (runtimeToLogical) {
+            const ws = this.getWorkspace();
+            if (!ws) return '(workspace unavailable)';
+            const rtl = runtimeToLogical || {};
+            const seen = new Set();
+            const lines = [];
+
+            const collectFields = (block) => {
+                const parts = [];
+                for (const input of block.inputList || []) {
+                    for (const f of input.fieldRow || []) {
+                        if (!f || typeof f.getValue !== 'function') continue;
+                        const editable = (f.EDITABLE !== undefined)
+                            ? !!f.EDITABLE
+                            : (typeof f.showEditor_ === 'function');
+                        if (!editable) continue;
+                        let val;
+                        try {
+                            val = (typeof f.getVariable === 'function')
+                                ? f.getVariable().name
+                                : f.getValue();
+                        } catch (_) { try { val = f.getValue(); } catch (_2) { val = '?'; } }
+                        parts.push(`${f.name || '?'}=${val}`);
+                    }
+                    // Include fields from shadow occupants (e.g. CONTROLS_FOR from/to/by)
+                    const conn = input.connection;
+                    const tgt = conn && conn.targetBlock && conn.targetBlock();
+                    if (tgt && typeof tgt.isShadow === 'function' && tgt.isShadow()) {
+                        parts.push(...collectFields(tgt));
+                    }
+                }
+                return parts;
+            };
+
+            const walk = (block, depth) => {
+                if (!block || depth > 15 || seen.has(block.id)) return;
+                seen.add(block.id);
+                const lid = rtl[block.id];
+                const fields = collectFields(block);
+                const fieldStr = fields.length ? ` (${fields.join(', ')})` : '';
+                const label = lid ? lid : `[${block.id.slice(0, 6)}]`;
+                lines.push(`${'  '.repeat(depth)}${label}: ${block.type}${fieldStr}`);
+                // Recurse into non-shadow child blocks
+                for (const input of block.inputList || []) {
+                    const conn = input.connection;
+                    const child = conn && conn.targetBlock && conn.targetBlock();
+                    if (child && !(typeof child.isShadow === 'function' && child.isShadow())) {
+                        walk(child, depth + 1);
+                    }
+                }
+                // Follow next-chain at same indent level (siblings in a sequence)
+                const next = block.nextConnection
+                    && block.nextConnection.targetBlock
+                    && block.nextConnection.targetBlock();
+                if (next) walk(next, depth);
+            };
+
+            try {
+                for (const top of (ws.getTopBlocks ? ws.getTopBlocks(true) : [])) {
+                    walk(top, 0);
+                }
+            } catch (e) {
+                return `(state unavailable: ${e.message})`;
+            }
+            return lines.join('\n') || '(empty workspace)';
+        },
+
         // ---- verification (also used by the drag engine) ----------------------
 
         // true  => model confirms the child is connected under the parent

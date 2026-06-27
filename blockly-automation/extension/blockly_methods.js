@@ -294,7 +294,7 @@
         // Bumped on every code change. The background probe compares this
         // against its expected version and re-injects fresh files when the
         // page is still holding scripts from before an extension reload.
-        VERSION: "15.9",
+        VERSION: "16.0",
 
         CAP_BLOCKS: CAP_BLOCKS,
 
