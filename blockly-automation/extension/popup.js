@@ -165,7 +165,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    if (closeBtn) closeBtn.addEventListener('click', () => window.close());
+    if (closeBtn) closeBtn.addEventListener('click', () => {
+        // When embedded as an iframe inside the page, post a close message to
+        // the content script which hides the panel. When opened as a standalone
+        // window (legacy detached mode), window.close() still works.
+        window.parent.postMessage('robo-ai:close', '*');
+        window.close();
+    });
 
     if (gearBtn) {
         gearBtn.addEventListener('click', () => {

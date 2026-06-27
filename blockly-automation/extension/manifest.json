@@ -41,5 +41,9 @@
     ],
     "action": {
         "default_title": "Blockly AI Automation"
-    }
+    },
+    "web_accessible_resources": [{
+        "resources": ["popup.html", "popup.css", "popup.js"],
+        "matches": ["<all_urls>"]
+    }]
 }
