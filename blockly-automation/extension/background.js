@@ -1,11 +1,32 @@
-// ── Session state — lives for the service-worker lifetime ────────────────────
-// Reset happens when the SW is torn down (extension reload, browser restart)
-// or when the user clicks "Clear Workspace" in the popup.
+// ── Session state — persisted to chrome.storage.session so it survives the
+// service-worker being torn down between prompts (Chrome MV3 can kill the SW
+// after ~30 s of inactivity). storage.session is cleared when the browser
+// closes, so it behaves like in-memory state from the user's perspective.
 let sessionState = {
     conversationHistory: [],   // [{role, parts}] — multi-turn Gemini contents
     logicalIdMap:        {},   // { logicalId: runtimeId } — persists across turns
     cumulativeTokens:    0
 };
+
+const SESSION_STORAGE_KEY = 'blocklySessionState';
+
+async function loadPersistedState() {
+    try {
+        const data = await chrome.storage.session.get(SESSION_STORAGE_KEY);
+        const saved = data[SESSION_STORAGE_KEY];
+        if (saved) {
+            sessionState.conversationHistory = saved.conversationHistory || [];
+            sessionState.logicalIdMap        = saved.logicalIdMap        || {};
+            sessionState.cumulativeTokens    = saved.cumulativeTokens    || 0;
+        }
+    } catch (_) {}
+}
+
+async function persistState() {
+    try {
+        await chrome.storage.session.set({ [SESSION_STORAGE_KEY]: sessionState });
+    } catch (_) {}
+}
 
 // TOOL DECLARATIONS FOR GEMINI
 const function_declarations = [
@@ -426,7 +447,7 @@ const GEMINI_MODEL = "gemini-2.5-flash-lite";
 // Must match BlocklyAgent.VERSION in blockly_methods.js. Bump both together —
 // executeOnPage re-injects the MAIN-world scripts whenever the page's loaded
 // version differs (pages opened before an extension reload keep stale code).
-const EXPECTED_AGENT_VERSION = "16.0";
+const EXPECTED_AGENT_VERSION = "16.1";
 
 async function handleClearWorkspace(requestTabId) {
     // Find an injectable tab (reuses executeOnPage's resolution logic)
@@ -457,6 +478,7 @@ async function handleClearWorkspace(requestTabId) {
     // Reset session state regardless of scripting success
     sessionState.logicalIdMap = {};
     sessionState.conversationHistory = [];
+    await persistState();
     return { status: "cleared" };
 }
 
@@ -578,6 +600,7 @@ Rules:
 }
 
 async function handleGeminiFlow(userPrompt, apiKey, requestTabId) {
+    await loadPersistedState();  // restore idMap + history if SW was torn down between turns
     // Use the key the popup sent — never override it. The previous hardcoded
     // override silently ignored whatever the user typed in the popup field.
     apiKey = String(apiKey || "").trim();
@@ -620,7 +643,7 @@ async function handleGeminiFlow(userPrompt, apiKey, requestTabId) {
             Object.entries(sessionState.logicalIdMap).map(([lid, rid]) => [rid, lid])
         );
         const wsState = await captureWorkspaceState(requestTabId, reverseIdMap);
-        wsContext = `\n\nCURRENT WORKSPACE STATE (each line: logicalId: block_type (fields)):\n${wsState || existingIds.map(id => `  ${id}: (unknown)`).join('\n')}\n\nEdit rules:\n- Use action="modify" with the block's logical id to change a field value in-place (e.g. to change amplitude from 5 to 10, emit modify on the MATH_NUMBER block whose NUM=5).\n- Use action="remove" to delete a block and all its children. Then spawn replacements as needed.\n- Use action="spawn" with parent/pos to ADD new blocks without clearing the workspace.\n- Only emit commands for what actually needs to change — leave all other blocks untouched.\n- To start completely fresh, emit {"action":"clear"} as the very first command.`;
+        wsContext = `\n\nCURRENT WORKSPACE STATE (each line: logicalId: block_type (field=value ...)):\n${wsState || existingIds.map(id => `  ${id}: (unknown)`).join('\n')}\n\nEDIT RULES:\n- NEVER ask the user to identify a block — all logical IDs are in the state tree above; look them up and use them directly.\n- ALWAYS call execute_blockly_script; never respond with plain text.\n- If block types are visible: prefer targeted edits — action "modify" to change a field, action "remove" to delete a block and its children.\n- If block types show as "(unknown)" and targeted editing is not possible: you MUST emit action "clear" as the very first command, then rebuild the full program.\n- To add new blocks without clearing: action "spawn" with parent and pos.\n- Only emit commands for what needs to change; leave everything else untouched.\n- To start completely fresh: make the very first command action "clear".`;
     }
 
     // Multi-turn: prepend conversation history before the new user message
@@ -663,7 +686,7 @@ SCRIPT RULES:
 2. 'parent' links to a previous 'id' (not a Msg key).
 3. pos: 'nested' = drop INSIDE the parent's statement-body OR INSIDE a value socket on the parent. pos: 'next' = drop ADJACENT BELOW the parent (chained statement).
 3a. CAP BLOCKS (INITIATE, START_BLOCK) have NO 'next' connector — they terminate a chain. The FIRST child of a cap MUST use pos:'nested' (into its statement-body). Subsequent siblings should chain to that first child via pos:'next', NOT back to the cap. Example: spawn INITIATE id=start; spawn RESET_GRAPH parent=start pos=NESTED; spawn CONTROLS_FOR parent=reset pos=NEXT — never "parent=start pos=next" for the second statement.
-4. NEVER output plain JSON text to the user. ALWAYS call the tool.
+4. NEVER output plain JSON text to the user. ALWAYS call the tool. NEVER ask the user to identify a block by logical ID — look it up in the CURRENT WORKSPACE STATE provided in the system prompt.
 5. Prefer the exact categories and block keys listed below.
 6. When a task needs a runnable program, start with INITIATE unless the user explicitly asks for a value-only expression.
 7. STATEMENT vs VALUE blocks:
@@ -1116,6 +1139,21 @@ REFERENCE MANUAL:
                 } else if (normalizedScript.length === 1 && normalizedScript[0].block === "INITIATE") {
                     console.warn("[BlocklyAgent] Model only emitted INITIATE.");
                 }
+                // Safety net: if existing blocks are present and the LLM spawns
+                // INITIATE as the first command without a preceding clear, the
+                // executor will try to drag a second INITIATE onto an occupied
+                // workspace and fail. Auto-prepend clear so the full rebuild
+                // always starts from a clean slate.
+                const firstCmd = normalizedScript[0];
+                const looksLikeRebuild = !isFirstRun
+                    && existingIds.length > 0
+                    && firstCmd
+                    && firstCmd.action === "spawn"
+                    && firstCmd.block === "INITIATE";
+                if (looksLikeRebuild) {
+                    normalizedScript.unshift({ action: "clear" });
+                    console.warn("[BlocklyAgent] Auto-prepended clear: LLM spawned INITIATE on non-empty workspace without clearing.");
+                }
                 // Pass options so the executor knows current idMap and whether to clear
                 args.options = {
                     clearFirst: isFirstRun,
@@ -1158,6 +1196,7 @@ REFERENCE MANUAL:
             currentUserContent,
             { role: "model", parts: [{ text: `[Placed ${totalSpawnedCount} blocks via ${totalCommandsSent} command(s)]` }] }
         );
+        await persistState();  // survive SW teardown before next turn
 
         const generatedCode = await captureGeneratedCode(requestTabId);
         saveDebugLog({

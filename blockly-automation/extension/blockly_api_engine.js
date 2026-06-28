@@ -531,6 +531,9 @@
                             val = (typeof f.getVariable === 'function')
                                 ? f.getVariable().name
                                 : f.getValue();
+                            // Normalise to lowercase so the display matches the
+                            // lowercase values the LLM uses in 'input' commands.
+                            if (typeof val === 'string') val = val.toLowerCase();
                         } catch (_) { try { val = f.getValue(); } catch (_2) { val = '?'; } }
                         parts.push(`${f.name || '?'}=${val}`);
                     }
