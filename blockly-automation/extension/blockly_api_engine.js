@@ -72,11 +72,92 @@
                     if (isWorkspace(el.workspace)) return (this._ws = el.workspace);
                     if (isWorkspace(el.blockly_workspace)) return (this._ws = el.blockly_workspace);
                 }
+                // 4) scan WorkspaceDB_ — Blockly's own registry, available in
+                //    builds that don't expose getMainWorkspace()
+                try {
+                    const db = window.Blockly && window.Blockly.Workspace && window.Blockly.Workspace.WorkspaceDB_;
+                    if (db && typeof db === "object") {
+                        for (const id of Object.keys(db)) {
+                            const cand = db[id];
+                            if (isWorkspace(cand) && !cand.isFlyout) return (this._ws = cand);
+                        }
+                    }
+                } catch (_) { }
             }
             return null;
         },
 
-        // ---- spawn ---------------------------------------------------------
+        // ---- direct spawn (no flyout, no drag) --------------------------------
+        // Maps Robophone Msg keys to native Blockly block types.  Kept here so
+        // the same table is usable from both the extension and standalone tests.
+        MSG_TO_TYPE: {
+            // phantom cap — no native equivalent; callers treat it as null
+            INITIATE: null,
+            // variables
+            VAR_SET: "variables_set",
+            VAR_GET: "variables_get",
+            VAR_CHANGE: "math_change",
+            // math
+            MATH_NUMBER: "math_number",
+            MATH_ARITHMETIC: "math_arithmetic",
+            MATH_TRIG: "math_trig",
+            MATH_ADVANCED: "math_js_noparent",
+            MATH_ROUND: "math_round",
+            MATH_MODULO: "math_modulo",
+            MATH_CONSTRAIN: "math_constrain",
+            MATH_RANDOM_INT: "math_random_int",
+            MATH_RANDOM_FLOAT: "math_random_float",
+            MATH_ATAN2: "math_atan2",
+            // logic
+            LOGIC_COMPARE: "logic_compare",
+            LOGIC_OPERATION: "logic_operation",
+            LOGIC_NEGATE: "logic_negate",
+            LOGIC_BOOLEAN: "logic_boolean",
+            // controls
+            CONTROLS_IF: "controls_if",
+            CONTROLS_FOR: "controls_for",
+            CONTROLS_WHILEUNTIL: "controls_whileUntil",
+            CONTROLS_REPEAT_EXT: "controls_repeat_ext",
+            CONTROLS_FLOW_STATEMENTS: "controls_flow_statements",
+            // lists
+            LISTS_CREATE_EMPTY: "lists_create_empty",
+            LISTS_CREATE_WITH: "lists_create_with",
+            LISTS_GET_INDEX: "lists_getIndex",
+            LISTS_SET_INDEX: "lists_setIndex",
+            LISTS_GET_SUBLIST: "lists_getSublist",
+            LISTS_LENGTH: "lists_length",
+            LISTS_REPEAT: "lists_repeat",
+            // text
+            TEXT: "text",
+            TEXT_PRINT: "text_print",
+            TEXT_JOIN: "text_join",
+            TEXT_APPEND: "text_append",
+            TEXT_LENGTH: "text_length",
+        },
+
+        // Spawn a block directly via ws.newBlock() — no flyout, no drag.
+        // Returns the new Blockly block on success, or null if the key isn't
+        // in MSG_TO_TYPE (caller can fall back to the flyout path).
+        spawnDirect: function (blockKey) {
+            const type = this.MSG_TO_TYPE[blockKey];
+            // INITIATE is a phantom with no native type — callers handle null.
+            if (type === null) return { phantom: true };
+            if (type === undefined) return null; // key not in map
+            const ws = this.getWorkspace();
+            if (!ws) return null;
+            try {
+                const block = ws.newBlock(type);
+                if (block.initSvg) block.initSvg();
+                if (block.render) block.render();
+                console.log(`⚡ [API direct] spawned '${blockKey}' → '${type}' (id=${block.id})`);
+                return block;
+            } catch (e) {
+                console.warn(`[API direct] newBlock('${type}') threw: ${e.message}`);
+                return null;
+            }
+        },
+
+        // ---- flyout-based spawn (legacy / robophone-specific blocks) ----------
 
         getCachedState: function (blockKey) { return this._stateCache.get(blockKey) || null; },
         cacheState: function (blockKey, ser) { this._stateCache.set(blockKey, ser); },
@@ -266,20 +347,40 @@
         _connectStatement: function (parentBlock, childBlock) {
             if (!childBlock.previousConnection) return { ok: false, why: `child '${childBlock.type}' has no previous connection` };
             const NEXT_STATEMENT = connType("NEXT_STATEMENT");
-            for (const input of parentBlock.inputList || []) {
-                const conn = input.connection;
-                if (!conn || conn.type !== NEXT_STATEMENT) continue;
-                const head = conn.targetBlock();
-                if (!head) {
-                    try { conn.connect(childBlock.previousConnection); } catch (_) { continue; }
-                    if (childBlock.getParent()) return { ok: true, mode: `statement input '${input.name || "?"}'` };
-                    continue;
+            // controls_if starts with only DO0; mutate to add ELSE when all
+            // existing statement slots are occupied.
+            const tryMutateIfBlock = () => {
+                if (parentBlock.type !== "controls_if") return false;
+                const statCount = (parentBlock.inputList || []).filter(i => i.connection && i.connection.type === NEXT_STATEMENT).length;
+                try {
+                    if (statCount === 1 && !parentBlock.elseCount_) {
+                        parentBlock.elseCount_ = 1;
+                    } else if (typeof parentBlock.elseifCount_ !== "undefined") {
+                        parentBlock.elseifCount_ = (parentBlock.elseifCount_ || 0) + 1;
+                    } else {
+                        return false;
+                    }
+                    if (typeof parentBlock.updateShape_ === "function") parentBlock.updateShape_();
+                    return true;
+                } catch (_) { return false; }
+            };
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+                for (const input of parentBlock.inputList || []) {
+                    const conn = input.connection;
+                    if (!conn || conn.type !== NEXT_STATEMENT) continue;
+                    const head = conn.targetBlock();
+                    if (!head) {
+                        try { conn.connect(childBlock.previousConnection); } catch (_) { continue; }
+                        if (childBlock.getParent()) return { ok: true, mode: `statement input '${input.name || "?"}'` };
+                        continue;
+                    }
+                    // Body already has statements: append after its tail
+                    const res = this._connectNextChain(head, childBlock);
+                    if (res.ok) return { ok: true, mode: `statement input '${input.name || "?"}' (appended after existing body)` };
                 }
-                // Body already has statements: append after its tail — matches
-                // the LLM contract "second nested child lands below the first
-                // inside the body".
-                const res = this._connectNextChain(head, childBlock);
-                if (res.ok) return { ok: true, mode: `statement input '${input.name || "?"}' (appended after existing body)` };
+                // All slots occupied — try mutating controls_if once to add ELSE
+                if (attempt === 0 && !tryMutateIfBlock()) break;
             }
             return { ok: false, why: `no statement input available on '${parentBlock.type}'` };
         },

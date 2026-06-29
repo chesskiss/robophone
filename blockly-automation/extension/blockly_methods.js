@@ -613,51 +613,61 @@
             return b || null;
         },
 
-        // API-based spawn: resolve the flyout block once (cached per key),
-        // append a fresh copy to the workspace, and connect it through real
-        // Connection objects. Throws on hard failures (parent unresolvable,
-        // no compatible socket); returns null on soft ones (no data-id on
-        // this build) so the caller can fall back to the drag engine.
+        // API-based spawn: try direct newBlock() first (no flyout, instant),
+        // fall back to flyout serialization for robophone-specific blocks.
+        // Returns null on soft failure so the caller can try the drag engine.
         _spawnViaApi: async function (engine, catPath, blockKey, parentId, positionType) {
             const ws = engine.getWorkspace();
             if (!ws) return null;
 
-            // Resolve (and cache) the serialized flyout state for this key.
-            // Each key pays the category-navigation cost only once per page
-            // load — later spawns of the same key skip the toolbox entirely.
-            let ser = engine.getCachedState(blockKey);
-            if (!ser) {
-                console.log(`📂 [API] Resolving '${blockKey}' from the flyout (first use).`);
-                await this._navigatePath(catPath);
-                const { canonical, logLabel } = this._searchCanonicalFor(blockKey);
-                let node = this._huntForBlock(canonical, blockKey);
-                if (!node) {
-                    const lastCatKey = catPath[catPath.length - 1];
-                    const lastCatLabel = this._getLabel(lastCatKey) || lastCatKey;
-                    console.warn(`🔁 [API] retrying by reopening category '${lastCatLabel}'.`);
-                    await this._openCategoryTab(lastCatLabel, true);
-                    node = this._huntForBlock(canonical, blockKey);
-                }
-                if (!node) node = this._discoverBlockByKey(blockKey);
-                if (!node) throw new Error(`Visual block ${logLabel} not found in flyout.`);
-                const flyBlock = engine.resolveFlyoutBlock(node);
-                if (!flyBlock) {
-                    console.warn(`⚠️ [API] flyout DOM node for '${blockKey}' has no resolvable Blockly block (no data-id?) — cannot use API path.`);
-                    return null;
-                }
-                ser = engine.serializeFlyoutBlock(flyBlock);
-                if (!ser) return null;
-                engine.cacheState(blockKey, ser);
-                console.log(`🗃️ [API] cached '${blockKey}' as type '${flyBlock.type}' (${ser.kind} serialization).`);
+            // --- Path A: direct ws.newBlock() via MSG_TO_TYPE map ---
+            const direct = engine.spawnDirect(blockKey);
+            if (direct && direct.phantom) {
+                // INITIATE is a phantom cap — no block to place, treat as root anchor.
+                // The logical id is registered with null so children become top-level.
+                return "__phantom__";
             }
 
-            const newBlock = engine.appendSerialized(ser);
-            if (!newBlock) return null;
+            let newBlock = direct || null;
+
+            // --- Path B: flyout serialization (robophone-specific blocks) ---
+            if (!newBlock) {
+                let ser = engine.getCachedState(blockKey);
+                if (!ser) {
+                    console.log(`📂 [API] Resolving '${blockKey}' from the flyout (first use).`);
+                    await this._navigatePath(catPath);
+                    const { canonical, logLabel } = this._searchCanonicalFor(blockKey);
+                    let node = this._huntForBlock(canonical, blockKey);
+                    if (!node) {
+                        const lastCatKey = catPath[catPath.length - 1];
+                        const lastCatLabel = this._getLabel(lastCatKey) || lastCatKey;
+                        console.warn(`🔁 [API] retrying by reopening category '${lastCatLabel}'.`);
+                        await this._openCategoryTab(lastCatLabel, true);
+                        node = this._huntForBlock(canonical, blockKey);
+                    }
+                    if (!node) node = this._discoverBlockByKey(blockKey);
+                    if (!node) throw new Error(`Visual block ${logLabel} not found in flyout.`);
+                    const flyBlock = engine.resolveFlyoutBlock(node);
+                    if (!flyBlock) {
+                        console.warn(`⚠️ [API] flyout DOM node for '${blockKey}' has no resolvable Blockly block (no data-id?) — cannot use API path.`);
+                        return null;
+                    }
+                    ser = engine.serializeFlyoutBlock(flyBlock);
+                    if (!ser) return null;
+                    engine.cacheState(blockKey, ser);
+                    console.log(`🗃️ [API] cached '${blockKey}' as type '${flyBlock.type}' (${ser.kind} serialization).`);
+                }
+                newBlock = engine.appendSerialized(ser);
+                if (!newBlock) return null;
+            }
+
+            // __phantom__ means the parent was INITIATE — treat child as top-level.
+            const effectiveParentId = (parentId === "__phantom__") ? null : parentId;
 
             try {
-                if (parentId) {
-                    const parentBlock = this._resolveWorkspaceBlock(parentId);
-                    if (!parentBlock) throw new Error(`Parent runtime id '${parentId}' not resolvable to a workspace block.`);
+                if (effectiveParentId) {
+                    const parentBlock = this._resolveWorkspaceBlock(effectiveParentId);
+                    if (!parentBlock) throw new Error(`Parent runtime id '${effectiveParentId}' not resolvable to a workspace block.`);
                     const res = engine.connect(parentBlock, newBlock, positionType);
                     if (!res.ok) throw new Error(`connect failed: ${res.why}`);
                     console.log(`🔗 [API] '${blockKey}' connected via ${res.mode}.`);
@@ -666,15 +676,13 @@
                     console.log(`📍 [API] '${blockKey}' placed as a root block.`);
                 }
             } catch (e) {
-                // Never leave a half-placed orphan behind: dispose cleanly via
-                // the API (no undo keystrokes, no registry corruption).
                 try { newBlock.dispose(); } catch (_) { }
                 throw e;
             }
 
             engine.blocksById.set(newBlock.id, newBlock);
             const svgRoot = newBlock.getSvgRoot ? newBlock.getSvgRoot() : null;
-            if (svgRoot) svgRoot.dataset.llmId = newBlock.id; // keep legacy DOM lookups working
+            if (svgRoot) svgRoot.dataset.llmId = newBlock.id;
             return newBlock.id;
         },
         _spawnPhysicalImpl: async function (catPath, blockKey, parentId, positionType) {

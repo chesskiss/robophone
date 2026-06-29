@@ -21,6 +21,11 @@
 
   <div id="chatHistory" class="chat-history"></div>
 
+  <div id="testPanel" class="test-panel hidden">
+    <div class="test-panel-header">Native SDK Tests (no LLM)</div>
+    <div id="testList" class="test-list"></div>
+  </div>
+
   <div class="bottom-bar">
     <div class="prompt-row">
       <select id="langSelect" class="lang-select" title="Language hint for voice recording (auto-detect if blank)">
@@ -55,7 +60,7 @@
     <div class="action-row">
       <button id="sendBtn">Send</button>
       <button id="clearWsBtn" class="secondary-btn">Clear Workspace</button>
-      <button id="testBtn" class="secondary-btn" title="Run built-in test script (no LLM)">Test</button>
+      <button id="testBtn" class="secondary-btn" title="Run native SDK tests (no LLM)">Tests ▾</button>
     </div>
   </div>
 
