@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Blockly API Placement Test</title>
+  <script src="https://unpkg.com/blockly/blockly_compressed.js"></script>
+  <script src="https://unpkg.com/blockly/blocks_compressed.js"></script>
+  <script src="https://unpkg.com/blockly/msg/en.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; height: 100vh; display: flex; flex-direction: column; }
+    #toolbar { flex-shrink: 0; padding: 10px 16px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    h1 { font-size: 1rem; color: #0ea5e9; margin-right: 8px; white-space: nowrap; }
+    button { background: #4f46e5; color: white; border: none; padding: 7px 13px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+    button:hover { opacity: 0.85; }
+    button.secondary { background: #1e293b; border: 1px solid #475569; color: #94a3b8; }
+    button.secondary:hover { border-color: #0ea5e9; color: #f8fafc; }
+    button.success { background: #059669; }
+    button.danger  { background: #dc2626; }
+    #status { font-size: 0.75rem; color: #64748b; padding: 4px 8px; background: #0f172a; border: 1px solid #1e293b; border-radius: 4px; min-width: 200px; }
+    #status.ok  { color: #34d399; border-color: #059669; }
+    #status.err { color: #f87171; border-color: #dc2626; }
+    #main { flex: 1; display: flex; overflow: hidden; }
+    #blocklyDiv { flex: 1; height: 100%; }
+    #panel { width: 340px; flex-shrink: 0; background: #1e293b; border-left: 1px solid #334155; display: flex; flex-direction: column; overflow: hidden; }
+    #panel h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; padding: 8px 12px; border-bottom: 1px solid #334155; }
+    #jsonOut { flex: 1; overflow: auto; padding: 10px 12px; font-family: 'SF Mono', monospace; font-size: 0.7rem; line-height: 1.5; color: #94a3b8; white-space: pre-wrap; word-break: break-all; }
+  </style>
+</head>
+<body>
+<div id="toolbar">
+  <h1>Blockly API Test</h1>
+  <button onclick="runTest('forLoopSin')" class="success">Test: for loop + sin×5</button>
+  <button onclick="runTest('arithmetic')">Test: arithmetic chain</button>
+  <button onclick="runTest('listOps')">Test: list operations</button>
+  <button onclick="runTest('ifLogic')">Test: if/else</button>
+  <button onclick="captureJson()" class="secondary">Capture JSON</button>
+  <button onclick="clearWs()" class="danger secondary">Clear</button>
+  <span id="status">Ready</span>
+</div>
+<div id="main">
+  <div id="blocklyDiv"></div>
+  <div id="panel">
+    <h2>Workspace JSON / Log</h2>
+    <pre id="jsonOut">Click a test button to see the workspace JSON...</pre>
+  </div>
+</div>
+
+<xml id="toolbox" style="display:none">
+  <category name="Logic"    colour="210"><block type="controls_if"></block><block type="logic_compare"></block><block type="logic_operation"></block><block type="logic_negate"></block><block type="logic_boolean"></block></category>
+  <category name="Loops"    colour="120"><block type="controls_for"></block><block type="controls_repeat_ext"></block><block type="controls_whileUntil"></block></category>
+  <category name="Math"     colour="230"><block type="math_number"></block><block type="math_arithmetic"></block><block type="math_single"></block><block type="math_trig"></block><block type="math_constant"></block><block type="math_round"></block></category>
+  <category name="Text"     colour="160"><block type="text"></block><block type="text_join"></block><block type="text_length"></block></category>
+  <category name="Lists"    colour="260"><block type="lists_create_empty"></block><block type="lists_create_with"></block><block type="lists_length"></block><block type="lists_getIndex"></block><block type="lists_setIndex"></block></category>
+  <category name="Variables" colour="330" custom="VARIABLE"></category>
+</xml>
+
+<script>
+// ── Workspace setup ────────────────────────────────────────────
+const ws = Blockly.inject('blocklyDiv', {
+  toolbox: document.getElementById('toolbox'),
+  grid: { spacing: 20, length: 3, colour: '#1e293b', snap: true },
+  move: { scrollbars: true, drag: true, wheel: true },
+  zoom: { controls: true, wheel: true, startScale: 0.9 },
+  theme: Blockly.Themes.Dark,
+  renderer: 'zelos',
+});
+
+function setStatus(msg, type = '') {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = type;
+}
+
+function log(msg) {
+  document.getElementById('jsonOut').textContent = msg;
+}
+
+// ── Core placement helpers ──────────────────────────────────────
+function mkBlock(type) {
+  const b = ws.newBlock(type);
+  b.initSvg();
+  b.render();
+  return b;
+}
+
+function num(value) {
+  const b = mkBlock('math_number');
+  b.setFieldValue(String(value), 'NUM');
+  return b;
+}
+
+function varGet(name) {
+  const b = mkBlock('variables_get');
+  b.setFieldValue(name, 'VAR');
+  return b;
+}
+
+function varSet(name, valueBlock) {
+  const b = mkBlock('variables_set');
+  b.setFieldValue(name, 'VAR');
+  b.getInput('VALUE').connection.connect(valueBlock.outputConnection);
+  return b;
+}
+
+function arithmetic(op, blockA, blockB) {
+  const b = mkBlock('math_arithmetic');
+  b.setFieldValue(op, 'OP'); // ADD MINUS MULTIPLY DIVIDE POWER
+  b.getInput('A').connection.connect(blockA.outputConnection);
+  b.getInput('B').connection.connect(blockB.outputConnection);
+  return b;
+}
+
+function trig(op, inputBlock) {
+  const b = mkBlock('math_trig');
+  b.setFieldValue(op, 'OP'); // SIN COS TAN ASIN ACOS ATAN
+  b.getInput('NUM').connection.connect(inputBlock.outputConnection);
+  return b;
+}
+
+// ── Position top-level blocks in a column ──────────────────────
+let nextY = 20;
+function place(block, x = 20) {
+  block.moveBy(x, nextY);
+  nextY += 120;
+  return block;
+}
+
+function clearWs() {
+  ws.clear();
+  nextY = 20;
+  log('Workspace cleared.');
+  setStatus('Cleared');
+}
+
+// ── Tests ──────────────────────────────────────────────────────
+const TESTS = {
+  // Test 1: for(angle=-360; angle<=360; angle+=10) { graph(angle, 5*sin(angle)) }
+  // Uses: controls_for, math_number, math_trig, math_arithmetic, variables_get
+  forLoopSin() {
+    const loop = mkBlock('controls_for');
+
+    // Loop variable: "angle"
+    loop.setFieldValue('angle', 'VAR');
+
+    // FROM: -360
+    loop.getInput('FROM').connection.connect(num(-360).outputConnection);
+    // TO: 360
+    loop.getInput('TO').connection.connect(num(360).outputConnection);
+    // BY: 10
+    loop.getInput('BY').connection.connect(num(10).outputConnection);
+
+    // Body: y = 5 * sin(angle)
+    // sin(angle)
+    const sinBlock = trig('SIN', varGet('angle'));
+    // 5 * sin(angle)
+    const amplitudeExpr = arithmetic('MULTIPLY', num(5), sinBlock);
+    // print_text or just a set variable to prove it's wired
+    const setY = varSet('y', amplitudeExpr);
+
+    // Also set x = angle
+    const setX = varSet('x', varGet('angle'));
+
+    // Chain setX → setY in the DO slot
+    loop.getInput('DO').connection.connect(setX.previousConnection);
+    setX.nextConnection.connect(setY.previousConnection);
+
+    place(loop);
+    return loop;
+  },
+
+  // Test 2: arithmetic chain a=(3+4)*2 → b=a-1
+  arithmetic() {
+    // (3 + 4)
+    const sum = arithmetic('ADD', num(3), num(4));
+    // (3+4) * 2
+    const product = arithmetic('MULTIPLY', sum, num(2));
+    // a = (3+4)*2
+    const setA = varSet('a', product);
+    place(setA);
+
+    // b = a - 1
+    const setB = varSet('b', arithmetic('MINUS', varGet('a'), num(1)));
+    place(setB);
+
+    return setA;
+  },
+
+  // Test 3: list ops — create list, set item, get item
+  listOps() {
+    // myList = []
+    const emptyList = mkBlock('lists_create_empty');
+    const setList = varSet('myList', emptyList);
+    place(setList);
+
+    // Also create a with-items list [1, 2, 3]
+    const listWith = mkBlock('lists_create_with');
+    listWith.itemCount_ = 3;
+    // Re-init mutation for 3 items
+    if (listWith.itemCount_ !== undefined) {
+      // lists_create_with starts with 3 items by default
+    }
+    listWith.getInput('ADD0')?.connection.connect(num(1).outputConnection);
+    listWith.getInput('ADD1')?.connection.connect(num(2).outputConnection);
+    listWith.getInput('ADD2')?.connection.connect(num(3).outputConnection);
+    const setFilled = varSet('filled', listWith);
+    place(setFilled);
+
+    return setList;
+  },
+
+  // Test 4: if/else
+  ifLogic() {
+    const ifBlock = mkBlock('controls_if');
+
+    // Condition: 5 > 3
+    const compare = mkBlock('logic_compare');
+    compare.setFieldValue('GT', 'OP');
+    compare.getInput('A').connection.connect(num(5).outputConnection);
+    compare.getInput('B').connection.connect(num(3).outputConnection);
+
+    ifBlock.getInput('IF0').connection.connect(compare.outputConnection);
+    // DO0: set result = 1
+    ifBlock.getInput('DO0').connection.connect(varSet('result', num(1)).previousConnection);
+
+    place(ifBlock);
+    return ifBlock;
+  },
+};
+
+function runTest(name) {
+  clearWs();
+  try {
+    const start = performance.now();
+    const rootBlock = TESTS[name]();
+    const elapsed = (performance.now() - start).toFixed(1);
+
+    const blockCount = ws.getAllBlocks(false).length;
+    setStatus(`✓ ${name}: ${blockCount} blocks placed in ${elapsed}ms`, 'ok');
+
+    // Show workspace JSON
+    captureJson();
+  } catch (e) {
+    setStatus(`✗ ${name}: ${e.message}`, 'err');
+    log(`ERROR: ${e.stack}`);
+    console.error(e);
+  }
+}
+
+function captureJson() {
+  try {
+    const json = Blockly.serialization.workspaces.save(ws);
+    log(JSON.stringify(json, null, 2));
+  } catch (e) {
+    log(`JSON capture failed: ${e.message}`);
+  }
+}
+
+// Resize Blockly when window changes
+window.addEventListener('resize', () => Blockly.svgResize(ws));
+</script>
+</body>
+</html>

@@ -60,6 +60,24 @@ const function_declarations = [
             },
             required: ["script"]
         }
+    },
+    {
+        name: "load_workspace",
+        description: "Replace the entire Blockly workspace with a new program defined as a Blockly serialization JSON object. Use this for ALL new programs and complete rewrites — it is more reliable than execute_blockly_script because it uses exact Blockly field names and atomic loading. The workspace is cleared first. Use execute_blockly_script only for targeted modifications of the current program.",
+        parameters: {
+            type: "OBJECT",
+            properties: {
+                workspace_json: {
+                    type: "OBJECT",
+                    description: "Blockly workspace serialization JSON. Top-level format: {\"blocks\": {\"languageVersion\": 0, \"blocks\": [...]}}. Each block uses lowercase \"type\" (e.g. \"controls_for\"), \"fields\" (exact internal names), and \"inputs\" (exact socket names). Field values for dropdowns use their internal string codes (e.g. OP: \"MULTIPLY\" not \"×\")."
+                },
+                description: {
+                    type: "STRING",
+                    description: "One-line description of what this program does (for debug log)."
+                }
+            },
+            required: ["workspace_json"]
+        }
     }
 ];
 
@@ -262,6 +280,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .catch(err => sendResponse({ error: err.message }));
         return true;
     }
+    if (request.action === "EXTRACT_BLOCK_SCHEMAS") {
+        executeOnPage("extract_block_schemas", { blockTypes: request.blockTypes }, request.tabId)
+            .then(out => sendResponse({ schemas: out && out.result && out.result.schemas }))
+            .catch(err => sendResponse({ error: err.message }));
+        return true;
+    }
 });
 
 function saveDebugLog(payload) {
@@ -321,6 +345,23 @@ async function captureWorkspaceState(tabId, reverseIdMap) {
                 return null;
             },
             args: [reverseIdMap]
+        });
+        return (results && results[0] && results[0].result) || null;
+    } catch (_) { return null; }
+}
+
+async function captureFullWorkspaceJsonBg(tabId) {
+    if (!tabId) return null;
+    try {
+        const results = await chrome.scripting.executeScript({
+            target: { tabId },
+            world: "MAIN",
+            func: () => {
+                if (window.BlocklyApiEngine && typeof window.BlocklyApiEngine.captureFullWorkspaceJson === 'function') {
+                    return window.BlocklyApiEngine.captureFullWorkspaceJson();
+                }
+                return null;
+            }
         });
         return (results && results[0] && results[0].result) || null;
     } catch (_) { return null; }
@@ -643,7 +684,7 @@ async function handleGeminiFlow(userPrompt, apiKey, requestTabId) {
             Object.entries(sessionState.logicalIdMap).map(([lid, rid]) => [rid, lid])
         );
         const wsState = await captureWorkspaceState(requestTabId, reverseIdMap);
-        wsContext = `\n\nCURRENT WORKSPACE STATE (each line: logicalId: block_type (field=value ...)):\n${wsState || existingIds.map(id => `  ${id}: (unknown)`).join('\n')}\n\nEDIT RULES:\n- NEVER ask the user to identify a block — all logical IDs are in the state tree above; look them up and use them directly.\n- ALWAYS call execute_blockly_script; never respond with plain text.\n- If block types are visible: prefer targeted edits — action "modify" to change a field, action "remove" to delete a block and its children.\n- If block types show as "(unknown)" and targeted editing is not possible: you MUST emit action "clear" as the very first command, then rebuild the full program.\n- To add new blocks without clearing: action "spawn" with parent and pos.\n- Only emit commands for what needs to change; leave everything else untouched.\n- To start completely fresh: make the very first command action "clear".`;
+        wsContext = `\n\nCURRENT WORKSPACE STATE (each line: logicalId: block_type (field=value ...)):\n${wsState || existingIds.map(id => `  ${id}: (unknown)`).join('\n')}\n\nEDIT RULES:\n- NEVER ask the user to identify a block — all logical IDs are in the state tree above; look them up and use them directly.\n- ALWAYS call a tool; never respond with plain text.\n- For targeted edits (change a field, add a block, remove a block): use execute_blockly_script with action "modify", "remove", or "spawn".\n- To rewrite the whole program: use load_workspace with a new workspace JSON.\n- If block types are visible: prefer targeted edits — action "modify" to change a field, action "remove" to delete a block and its children.\n- If block types show as "(unknown)" and targeted editing is not possible: use load_workspace to rebuild from scratch.\n- To add new blocks without clearing: action "spawn" with parent and pos.\n- Only emit commands for what needs to change; leave everything else untouched.`;
     }
 
     // Multi-turn: prepend conversation history before the new user message
@@ -675,7 +716,7 @@ async function handleGeminiFlow(userPrompt, apiKey, requestTabId) {
         system_instruction: {
             parts: [
                 {
-                    text: `You are a Blockly automation assistant for the Robo-Phone custom Blockly UI. Use the 'execute_blockly_script' tool.${wsContext}
+                    text: `You are a Blockly automation assistant for the Robo-Phone custom Blockly UI. You have two tools: 'execute_blockly_script' (spawn/input protocol) and 'load_workspace' (Blockly JSON, preferred for new programs using standard math/loop/variable blocks).${wsContext}
 
 SCRIPT RULES:
 0. EVERY command MUST have BOTH 'action' AND 'block'. There are no exceptions.
@@ -738,6 +779,65 @@ EXAMPLE — plot 5*sin(x) on the graph (WITH amplitude):
 - input draw value="red"
 - input draw value="false"
 RULE: amplitude always goes in the MATH_ARITHMETIC wrapper, NEVER as a field or nested child on MATH_TRIG itself.
+
+LOAD_WORKSPACE TOOL — when to use it:
+
+Use 'load_workspace' (instead of 'execute_blockly_script') when building a new program that uses standard Blockly math/logic/loop/variable blocks. The JSON format uses exact Blockly internal field names, so field assignment is guaranteed-correct — no more wrong slots or rejected operators.
+
+Use 'execute_blockly_script' when:
+- The program requires robophone-specific display blocks (GRAPH, LCD_MESSAGE, SSEGMENT, etc.) and you don't know their Blockly type names yet
+- Making a targeted modification to an existing program ("change amplitude to 10", "add another graph point")
+
+WORKSPACE JSON — known field and input socket names:
+
+| Block type        | Fields (name: valid values)                             | Value inputs   | Statement input |
+|-------------------|---------------------------------------------------------|----------------|-----------------|
+| controls_for      | VAR: {name: "varName"}                                  | FROM, TO, BY   | DO              |
+| math_arithmetic   | OP: "ADD" "MINUS" "MULTIPLY" "DIVIDE" "POWER"           | A, B           |                 |
+| math_trig         | OP: "SIN" "COS" "TAN" "ASIN" "ACOS" "ATAN"             | NUM            |                 |
+| math_number       | NUM: <number>                                           |                |                 |
+| math_advanced     | TEXT: <expression string e.g. "a*3.1416/180">           | A, B, C, X     |                 |
+| variables_get     | VAR: {name: "varName"}                                  |                |                 |
+| variables_set     | VAR: {name: "varName"}                                  | VALUE          |                 |
+| controls_if       | (none)                                                  | IF0            | DO0, ELSE       |
+| logic_compare     | OP: "EQ" "NEQ" "LT" "LTE" "GT" "GTE"                   | A, B           |                 |
+
+JSON EXAMPLE — 5*sin(angle), controls_for from -360 to 360 step 10 (math portion):
+
+{
+  "blocks": {
+    "languageVersion": 0,
+    "blocks": [{
+      "type": "controls_for",
+      "fields": { "VAR": { "name": "angle" } },
+      "inputs": {
+        "FROM": { "shadow": { "type": "math_number", "fields": { "NUM": -360 } } },
+        "TO":   { "shadow": { "type": "math_number", "fields": { "NUM": 360 } } },
+        "BY":   { "shadow": { "type": "math_number", "fields": { "NUM": 10 } } },
+        "DO": { "block": {
+          "type": "<GRAPH_BLOCK_TYPE>",
+          "inputs": {
+            "<X_SOCKET>": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "angle" } } } },
+            "<Y_SOCKET>": { "block": {
+              "type": "math_arithmetic",
+              "fields": { "OP": "MULTIPLY" },
+              "inputs": {
+                "A": { "block": { "type": "math_number", "fields": { "NUM": 5 } } },
+                "B": { "block": {
+                  "type": "math_trig",
+                  "fields": { "OP": "SIN" },
+                  "inputs": { "NUM": { "block": { "type": "variables_get", "fields": { "VAR": { "name": "angle" } } } } }
+                }}
+              }
+            }}
+          }
+        }}
+      }
+    }]
+  }
+}
+
+NOTE: <GRAPH_BLOCK_TYPE> and <X_SOCKET>/<Y_SOCKET> are placeholders for the robophone block's Blockly type name and socket names. Until those are discovered via the "Extract Schemas" button in the popup, use execute_blockly_script for programs that need GRAPH, LCD_MESSAGE, SSEGMENT, or other robophone-specific display blocks.
 
 POSITIONAL SOCKET RULES FOR COMMON BLOCKS
 
@@ -1159,11 +1259,23 @@ REFERENCE MANUAL:
                     clearFirst: isFirstRun,
                     persistentIdMap: { ...sessionState.logicalIdMap }
                 };
+            } else if (name === "load_workspace") {
+                // load_workspace replaces the workspace atomically — no normalization needed.
+                // Log it for diagnostics like a 1-command script.
+                rawScripts.push([{ action: "load_workspace_json" }]);
+                allNormalizedScripts.push([{ action: "load_workspace_json" }]);
+                totalCommandsSent += 1;
+                console.log(`[BlocklyAgent] load_workspace call: ${JSON.stringify(args.workspace_json).length} bytes`);
             }
             try {
                 const out = await executeOnPage(name, args, requestTabId);
                 if (out && out.result && typeof out.result.spawnedCount === "number") {
                     totalSpawnedCount += out.result.spawnedCount;
+                }
+                if (out && out.result && typeof out.result.blockCount === "number") {
+                    // load_workspace returns blockCount (total blocks loaded), not spawnedCount
+                    totalSpawnedCount += out.result.blockCount;
+                    sessionState.logicalIdMap = {}; // workspace replaced atomically; old IDs are gone
                 }
                 if (out && out.result && out.result.placementMode) {
                     lastPlacementMode = out.result.placementMode;
@@ -1191,11 +1303,34 @@ REFERENCE MANUAL:
             }
         }
 
-        // Store this turn in conversation history for multi-turn context
+        // Capture workspace state AFTER all blocks are placed, for multi-turn history.
+        const reverseAfter = Object.fromEntries(
+            Object.entries(sessionState.logicalIdMap).map(([lid, rid]) => [rid, lid])
+        );
+        const wsSnapshotAfter = await captureWorkspaceState(requestTabId, reverseAfter) || "(empty)";
+
+        // Store this turn in conversation history using the real function call parts
+        // (not a synthetic text stub). Gemini requires the actual functionCall parts
+        // to be replayed so it knows the tool was invoked, not just text was sent.
+        const partsForHistory = parts.filter(p => !p.thought);
+        const functionResponseParts = calls.map(call => ({
+            functionResponse: {
+                name: call.functionCall.name,
+                response: {
+                    output: `Executed successfully. Blocks placed: ${totalSpawnedCount}. Current workspace:\n${wsSnapshotAfter}`
+                }
+            }
+        }));
         sessionState.conversationHistory.push(
             currentUserContent,
-            { role: "model", parts: [{ text: `[Placed ${totalSpawnedCount} blocks via ${totalCommandsSent} command(s)]` }] }
+            { role: "model", parts: partsForHistory },
+            { role: "user", parts: functionResponseParts }
         );
+        // Cap at 10 turns (30 entries: user + model + functionResponse per turn)
+        const MAX_HISTORY_ENTRIES = 30;
+        if (sessionState.conversationHistory.length > MAX_HISTORY_ENTRIES) {
+            sessionState.conversationHistory = sessionState.conversationHistory.slice(-MAX_HISTORY_ENTRIES);
+        }
         await persistState();  // survive SW teardown before next turn
 
         const generatedCode = await captureGeneratedCode(requestTabId);
@@ -1524,6 +1659,21 @@ async function executeOnPage(method, args, preferredTabId) {
                     } catch (e) {
                         return { ok: false, error: String(e && e.message || e) };
                     }
+                }
+                if (methodName === "load_workspace") {
+                    if (!window.BlocklyApiEngine) return { ok: false, error: "BlocklyApiEngine not loaded" };
+                    const r = window.BlocklyApiEngine.loadWorkspace(argsObj.workspace_json);
+                    return r.success ? { ok: true, blockCount: r.blockCount } : { ok: false, error: r.error };
+                }
+                if (methodName === "capture_workspace_json") {
+                    if (!window.BlocklyApiEngine) return { ok: false, error: "BlocklyApiEngine not loaded" };
+                    const json = window.BlocklyApiEngine.captureFullWorkspaceJson();
+                    return { ok: true, workspaceJson: json };
+                }
+                if (methodName === "extract_block_schemas") {
+                    if (!window.BlocklyApiEngine) return { ok: false, error: "BlocklyApiEngine not loaded" };
+                    const schemas = window.BlocklyApiEngine.extractBlockSchemas(argsObj.blockTypes || []);
+                    return { ok: true, schemas };
                 }
                 if (typeof window[methodName] === "function") {
                     try {

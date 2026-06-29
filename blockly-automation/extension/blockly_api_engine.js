@@ -603,6 +603,78 @@
             }
             return false;
         },
+
+        // ---- workspace JSON: load, save, schema extraction -------------------
+
+        // Atomically replace the workspace with a Blockly serialization JSON object.
+        loadWorkspace: function (json) {
+            const ws = this.getWorkspace();
+            const B = window.Blockly;
+            if (!ws || !B) return { success: false, error: "Blockly workspace not available" };
+            try {
+                if (B.serialization && B.serialization.workspaces && B.serialization.workspaces.load) {
+                    B.serialization.workspaces.load(json, ws, { recordUndo: false });
+                    return { success: true, blockCount: ws.getAllBlocks(false).length };
+                }
+                return { success: false, error: "Blockly.serialization.workspaces.load not available on this build" };
+            } catch (e) {
+                return { success: false, error: `loadWorkspace threw: ${e.message}` };
+            }
+        },
+
+        // Capture the full workspace as Blockly serialization JSON (for LLM context on incremental edits).
+        captureFullWorkspaceJson: function () {
+            const ws = this.getWorkspace();
+            const B = window.Blockly;
+            if (!ws || !B) return null;
+            try {
+                if (B.serialization && B.serialization.workspaces && B.serialization.workspaces.save) {
+                    return B.serialization.workspaces.save(ws);
+                }
+            } catch (e) {
+                console.warn("[ApiEngine] captureFullWorkspaceJson failed:", e.message);
+            }
+            return null;
+        },
+
+        // One-time schema discovery: temporarily creates each block type, reads real
+        // field and input socket names, then disposes. blockTypes is an array of
+        // lowercase Blockly type strings (e.g. ['controls_for', 'math_arithmetic']).
+        extractBlockSchemas: function (blockTypes) {
+            const ws = this.getWorkspace();
+            const B = window.Blockly;
+            if (!ws || !B) return { error: "Workspace not available" };
+            const schemas = {};
+            for (const type of (blockTypes || [])) {
+                try {
+                    const block = ws.newBlock(type);
+                    schemas[type] = {
+                        fields: block.inputList.flatMap(inp =>
+                            inp.fieldRow.filter(f => f.name).map(f => {
+                                const entry = { name: f.name, type: f.constructor.name };
+                                if (typeof f.getOptions === 'function') {
+                                    try {
+                                        const opts = f.getOptions(false);
+                                        entry.options = opts.map(([label, val]) => ({
+                                            label: typeof label === 'string' ? label : (label.alt || label.text || '?'),
+                                            value: val
+                                        }));
+                                    } catch (_) { }
+                                }
+                                return entry;
+                            })
+                        ),
+                        inputs: block.inputList
+                            .filter(inp => inp.name)
+                            .map(inp => ({ name: inp.name, type: inp.type }))
+                    };
+                    block.dispose();
+                } catch (e) {
+                    schemas[type] = { error: e.message };
+                }
+            }
+            return schemas;
+        },
     };
 
     console.log("✅ Blockly API Engine V1 loaded.");

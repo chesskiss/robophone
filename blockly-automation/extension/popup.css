@@ -244,3 +244,18 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   min-height: 0.9rem;
   display: block;
 }
+
+/* ── Schema extractor (dev tool in API panel) ── */
+.schema-btn {
+  margin-top: 6px;
+  width: 100%;
+  font-size: 0.75rem;
+}
+
+.schema-status {
+  display: block;
+  font-size: 0.68rem;
+  margin-top: 4px;
+  color: #64748b;
+  min-height: 0.85rem;
+}

@@ -368,6 +368,78 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // ── Extract Schemas button (dev tool — gear panel) ────────────────────────
+
+    const extractSchemasBtn = document.getElementById('extractSchemasBtn');
+    const schemaStatus      = document.getElementById('schemaStatus');
+
+    // All type names to probe — tries both lowercase (standard Blockly) and
+    // original-case (some robophone custom blocks). Failed types get {error:...}
+    // entries in the output so the user can see what's available.
+    const SCHEMA_BLOCK_TYPES = [
+        // Standard Blockly
+        'controls_for', 'controls_if', 'controls_whileuntilforever', 'controls_repeat_ext',
+        'math_arithmetic', 'math_trig', 'math_advanced', 'math_number', 'math_single',
+        'math_constant', 'math_round', 'math_random_int', 'math_random_float', 'math_constrain',
+        'math_atan2', 'logic_compare', 'logic_operation', 'logic_negate', 'logic_boolean',
+        'variables_get', 'variables_set',
+        'text', 'text_join', 'text_length', 'text_trim',
+        'lists_create_with', 'lists_length', 'lists_getindex', 'lists_setindex',
+        'lists_sort', 'lists_split',
+        // Robophone custom — try both casing variants
+        'initiate', 'INITIATE', 'start_block', 'START_BLOCK',
+        'graph', 'GRAPH', 'reset_graph', 'RESET_GRAPH',
+        'graph_da', 'GRAPH_DA', 'graph_trendline', 'GRAPH_TRENDLINE',
+        'lcd_message', 'LCD_MESSAGE', 'lcd_text', 'LCD_TEXT',
+        'ssegment', 'SSEGMENT', 'bar', 'BAR',
+        'led', 'LED', 'led_bit', 'LED_BIT',
+        'wait', 'WAIT', 'controls_flow_statements',
+        'sensor_measure', 'SENSOR_MEASURE',
+        'virtual_sensor_measure', 'VIRTUAL_SENSOR_MEASURE',
+        'texttovoice', 'TEXTTOVOICE',
+        'sendsms', 'SENDSMS',
+        'write_to_file', 'WRITE_TO_FILE', 'read_file', 'READ_FILE',
+        'math_in_range', 'MATH_IN_RANGE',
+        'var_get', 'VAR_GET', 'var_set', 'VAR_SET', 'var_change', 'VAR_CHANGE',
+    ];
+
+    if (extractSchemasBtn) {
+        extractSchemasBtn.addEventListener('click', async () => {
+            const tabId = await requireTab();
+            if (tabId == null) return;
+
+            extractSchemasBtn.disabled = true;
+            schemaStatus.textContent = 'Extracting…';
+            schemaStatus.style.color = '#0ea5e9';
+
+            chrome.runtime.sendMessage(
+                { action: "EXTRACT_BLOCK_SCHEMAS", blockTypes: SCHEMA_BLOCK_TYPES, tabId },
+                (response) => {
+                    extractSchemasBtn.disabled = false;
+                    if (chrome.runtime.lastError || !response) {
+                        schemaStatus.textContent = 'Error: ' + (chrome.runtime.lastError?.message || 'no response');
+                        schemaStatus.style.color = '#ef4444';
+                        return;
+                    }
+                    if (response.error) {
+                        schemaStatus.textContent = 'Error: ' + response.error;
+                        schemaStatus.style.color = '#ef4444';
+                        return;
+                    }
+                    const schemas = response.schemas || {};
+                    const ok = Object.entries(schemas).filter(([, v]) => !v.error).length;
+                    const fail = Object.entries(schemas).filter(([, v]) => v.error).length;
+                    // Download as JSON file
+                    const json = JSON.stringify(schemas, null, 2);
+                    const url = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+                    chrome.downloads.download({ url, filename: 'block_schema.json', saveAs: false });
+                    schemaStatus.textContent = `✓ ${ok} ok, ${fail} failed — saved block_schema.json`;
+                    schemaStatus.style.color = '#22c55e';
+                }
+            );
+        });
+    }
+
     // ── Mic / STT button ──────────────────────────────────────────────────────
 
     let mediaRecorder = null;
