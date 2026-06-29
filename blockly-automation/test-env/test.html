@@ -2,262 +2,763 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Blockly API Placement Test</title>
+  <title>Blockly Executor Test</title>
   <script src="https://unpkg.com/blockly/blockly_compressed.js"></script>
   <script src="https://unpkg.com/blockly/blocks_compressed.js"></script>
   <script src="https://unpkg.com/blockly/msg/en.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; height: 100vh; display: flex; flex-direction: column; }
-    #toolbar { flex-shrink: 0; padding: 10px 16px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    h1 { font-size: 1rem; color: #0ea5e9; margin-right: 8px; white-space: nowrap; }
-    button { background: #4f46e5; color: white; border: none; padding: 7px 13px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+
+    /* ── toolbar ── */
+    #toolbar {
+      flex-shrink: 0; padding: 8px 14px; background: #1e293b;
+      border-bottom: 1px solid #334155; display: flex; gap: 8px; align-items: center;
+    }
+    #toolbar h1 { font-size: 0.95rem; color: #0ea5e9; margin-right: 4px; }
+    button {
+      background: #4f46e5; color: white; border: none; padding: 6px 12px;
+      border-radius: 5px; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+    }
     button:hover { opacity: 0.85; }
-    button.secondary { background: #1e293b; border: 1px solid #475569; color: #94a3b8; }
+    button.danger { background: #dc2626; }
+    button.secondary { background: transparent; border: 1px solid #475569; color: #94a3b8; }
     button.secondary:hover { border-color: #0ea5e9; color: #f8fafc; }
-    button.success { background: #059669; }
-    button.danger  { background: #dc2626; }
-    #status { font-size: 0.75rem; color: #64748b; padding: 4px 8px; background: #0f172a; border: 1px solid #1e293b; border-radius: 4px; min-width: 200px; }
-    #status.ok  { color: #34d399; border-color: #059669; }
-    #status.err { color: #f87171; border-color: #dc2626; }
+    #statusBar {
+      margin-left: auto; font-size: 0.72rem; padding: 4px 10px;
+      background: #0f172a; border: 1px solid #1e293b; border-radius: 4px; min-width: 180px;
+      color: #64748b;
+    }
+    #statusBar.ok  { color: #34d399; border-color: #059669; }
+    #statusBar.err { color: #f87171; border-color: #dc2626; }
+
+    /* ── main layout: test list | workspace | log ── */
     #main { flex: 1; display: flex; overflow: hidden; }
+
+    /* test list */
+    #testList {
+      width: 230px; flex-shrink: 0; background: #0f172a;
+      border-right: 1px solid #334155; display: flex; flex-direction: column; overflow: hidden;
+    }
+    #testList h2 {
+      font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: #475569; padding: 8px 12px; border-bottom: 1px solid #1e293b; flex-shrink: 0;
+    }
+    #testList ul { list-style: none; overflow-y: auto; flex: 1; padding: 4px 0; }
+    #testList li {
+      padding: 9px 12px; cursor: pointer; border-left: 3px solid transparent;
+      transition: background 0.12s;
+    }
+    #testList li:hover { background: #1e293b; }
+    #testList li.active { background: #1e293b; border-left-color: #0ea5e9; }
+    #testList li.done  { border-left-color: #059669; }
+    #testList li.fail  { border-left-color: #dc2626; }
+    .test-title { font-size: 0.78rem; font-weight: 600; color: #e2e8f0; }
+    .test-meta  { font-size: 0.68rem; color: #64748b; margin-top: 2px; }
+    .test-badge {
+      display: inline-block; font-size: 0.6rem; padding: 1px 6px;
+      border-radius: 99px; margin-top: 3px; font-weight: 700;
+    }
+    .badge-ok  { background: #064e3b; color: #34d399; }
+    .badge-err { background: #7f1d1d; color: #fca5a5; }
+    .badge-warn { background: #78350f; color: #fcd34d; }
+
+    /* workspace */
     #blocklyDiv { flex: 1; height: 100%; }
-    #panel { width: 340px; flex-shrink: 0; background: #1e293b; border-left: 1px solid #334155; display: flex; flex-direction: column; overflow: hidden; }
-    #panel h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; padding: 8px 12px; border-bottom: 1px solid #334155; }
-    #jsonOut { flex: 1; overflow: auto; padding: 10px 12px; font-family: 'SF Mono', monospace; font-size: 0.7rem; line-height: 1.5; color: #94a3b8; white-space: pre-wrap; word-break: break-all; }
+
+    /* log panel */
+    #logPanel {
+      width: 300px; flex-shrink: 0; background: #1e293b;
+      border-left: 1px solid #334155; display: flex; flex-direction: column; overflow: hidden;
+    }
+    #logPanel h2 {
+      font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: #475569; padding: 8px 12px; border-bottom: 1px solid #334155; flex-shrink: 0;
+    }
+    #logOut {
+      flex: 1; overflow-y: auto; padding: 8px 10px;
+      font-family: 'SF Mono', monospace; font-size: 0.68rem; line-height: 1.6;
+      color: #94a3b8; white-space: pre-wrap; word-break: break-all;
+    }
+    .log-ok   { color: #34d399; }
+    .log-warn { color: #fcd34d; }
+    .log-err  { color: #f87171; }
+    .log-info { color: #94a3b8; }
   </style>
 </head>
 <body>
+
 <div id="toolbar">
-  <h1>Blockly API Test</h1>
-  <button onclick="runTest('forLoopSin')" class="success">Test: for loop + sin×5</button>
-  <button onclick="runTest('arithmetic')">Test: arithmetic chain</button>
-  <button onclick="runTest('listOps')">Test: list operations</button>
-  <button onclick="runTest('ifLogic')">Test: if/else</button>
-  <button onclick="captureJson()" class="secondary">Capture JSON</button>
-  <button onclick="clearWs()" class="danger secondary">Clear</button>
-  <span id="status">Ready</span>
+  <h1>Blockly Executor</h1>
+  <button class="secondary" onclick="captureJson()">Capture JSON</button>
+  <button class="danger secondary" onclick="clearWs()">Clear</button>
+  <span id="statusBar">Select a test →</span>
 </div>
+
 <div id="main">
+  <!-- ── Test list ── -->
+  <div id="testList">
+    <h2>Tests</h2>
+    <ul id="testListUl"></ul>
+  </div>
+
+  <!-- ── Blockly workspace ── -->
   <div id="blocklyDiv"></div>
-  <div id="panel">
-    <h2>Workspace JSON / Log</h2>
-    <pre id="jsonOut">Click a test button to see the workspace JSON...</pre>
+
+  <!-- ── Log panel ── -->
+  <div id="logPanel">
+    <h2>Execution Log</h2>
+    <pre id="logOut">Run a test to see logs here.</pre>
   </div>
 </div>
 
+<!-- Blockly toolbox (needed to initialise workspace) -->
 <xml id="toolbox" style="display:none">
-  <category name="Logic"    colour="210"><block type="controls_if"></block><block type="logic_compare"></block><block type="logic_operation"></block><block type="logic_negate"></block><block type="logic_boolean"></block></category>
-  <category name="Loops"    colour="120"><block type="controls_for"></block><block type="controls_repeat_ext"></block><block type="controls_whileUntil"></block></category>
-  <category name="Math"     colour="230"><block type="math_number"></block><block type="math_arithmetic"></block><block type="math_single"></block><block type="math_trig"></block><block type="math_constant"></block><block type="math_round"></block></category>
-  <category name="Text"     colour="160"><block type="text"></block><block type="text_join"></block><block type="text_length"></block></category>
-  <category name="Lists"    colour="260"><block type="lists_create_empty"></block><block type="lists_create_with"></block><block type="lists_length"></block><block type="lists_getIndex"></block><block type="lists_setIndex"></block></category>
+  <category name="Logic"     colour="210">
+    <block type="controls_if"></block><block type="logic_compare"></block>
+    <block type="logic_operation"></block><block type="logic_negate"></block>
+    <block type="logic_boolean"></block>
+  </category>
+  <category name="Loops"     colour="120">
+    <block type="controls_for"></block><block type="controls_repeat_ext"></block>
+    <block type="controls_whileUntil"></block>
+  </category>
+  <category name="Math"      colour="230">
+    <block type="math_number"></block><block type="math_arithmetic"></block>
+    <block type="math_single"></block><block type="math_trig"></block>
+    <block type="math_round"></block><block type="math_random_int"></block>
+    <block type="math_number_property"></block>
+  </category>
+  <category name="Text"      colour="160"><block type="text"></block></category>
+  <category name="Lists"     colour="260">
+    <block type="lists_create_empty"></block><block type="lists_create_with"></block>
+    <block type="lists_getIndex"></block><block type="lists_setIndex"></block>
+  </category>
   <category name="Variables" colour="330" custom="VARIABLE"></category>
+  <category name="Functions" colour="290" custom="PROCEDURE"></category>
 </xml>
 
 <script>
-// ── Workspace setup ────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// TEST DATA  (generated by run_tests.js / background.js Gemini planner)
+// ─────────────────────────────────────────────────────────────────────────────
+const TESTS = [
+  {
+    title: "Test 1 — Set variable to number",
+    complexity: "minimal · 2 blocks",
+    commands: [
+      {"block":"INITIATE","action":"spawn","cat":["CATLOOPS"],"id":"start"},
+      {"pos":"nested","block":"VAR_SET","action":"spawn","cat":["Variables"],"id":"var_set1","parent":"start"},
+      {"action":"input","block":"var_set1","value":"x"},
+      {"cat":["CATMATH"],"id":"num_val","parent":"var_set1","pos":"nested","block":"MATH_NUMBER","action":"spawn"},
+      {"value":"42","block":"num_val","action":"input"}
+    ]
+  },
+  {
+    title: "Test 2 — Basic arithmetic (3+4)×2",
+    complexity: "low · 4 blocks",
+    commands: [
+      {"cat":["CATLOOPS"],"id":"start","action":"spawn","block":"INITIATE"},
+      {"parent":"start","action":"spawn","pos":"nested","cat":["Variables"],"block":"VAR_SET","id":"set_result"},
+      {"action":"input","block":"set_result","value":"result"},
+      {"id":"math_multiply","block":"MATH_ARITHMETIC","pos":"nested","cat":["CATMATH"],"action":"spawn","parent":"set_result"},
+      {"value":"×","action":"input","block":"math_multiply"},
+      {"block":"MATH_ARITHMETIC","id":"math_add","action":"spawn","parent":"math_multiply","pos":"nested","cat":["CATMATH"]},
+      {"value":"+","action":"input","block":"math_add"},
+      {"id":"num3","block":"MATH_NUMBER","pos":"nested","cat":["CATMATH"],"parent":"math_add","action":"spawn"},
+      {"value":"3","action":"input","block":"num3"},
+      {"pos":"nested","cat":["CATMATH"],"parent":"math_add","action":"spawn","id":"num4","block":"MATH_NUMBER"},
+      {"action":"input","block":"num4","value":"4"},
+      {"id":"num2","block":"MATH_NUMBER","pos":"nested","cat":["CATMATH"],"action":"spawn","parent":"math_multiply"},
+      {"action":"input","block":"num2","value":"2"}
+    ]
+  },
+  {
+    title: "Test 3 — Trig: y = sin(90)",
+    complexity: "low-medium · 4 blocks",
+    commands: [
+      {"cat":["CATLOOPS"],"id":"start","action":"spawn","block":"INITIATE"},
+      {"parent":"start","pos":"nested","block":"VAR_SET","cat":["Variables"],"id":"var_set_y","action":"spawn"},
+      {"action":"input","block":"var_set_y","value":"y"},
+      {"block":"MATH_TRIG","action":"spawn","cat":["CATMATH"],"id":"sin_block","pos":"nested","parent":"var_set_y"},
+      {"block":"sin_block","value":"sin","action":"input"},
+      {"block":"MATH_NUMBER","action":"spawn","cat":["CATMATH"],"id":"num_90","pos":"nested","parent":"sin_block"},
+      {"action":"input","block":"num_90","value":"90"}
+    ]
+  },
+  {
+    title: "Test 4 — For loop i=1..10",
+    complexity: "medium · 3 blocks",
+    commands: [
+      {"block":"INITIATE","id":"start","cat":["CATLOOPS"],"action":"spawn"},
+      {"cat":["CATLOOPS"],"action":"spawn","pos":"nested","block":"CONTROLS_FOR","id":"loop1","parent":"start"},
+      {"block":"loop1","value":"i","action":"input"},
+      {"pos":"nested","block":"MATH_NUMBER","parent":"loop1","id":"num_start","cat":["CATMATH"],"action":"spawn"},
+      {"action":"input","block":"num_start","value":"1"},
+      {"parent":"loop1","id":"num_end","pos":"nested","block":"MATH_NUMBER","cat":["CATMATH"],"action":"spawn"},
+      {"value":"10","block":"num_end","action":"input"},
+      {"parent":"loop1","id":"num_step","pos":"nested","block":"MATH_NUMBER","cat":["CATMATH"],"action":"spawn"},
+      {"block":"num_step","value":"1","action":"input"},
+      {"pos":"nested","block":"VAR_SET","parent":"loop1","id":"set_total","cat":["Variables"],"action":"spawn"},
+      {"value":"total","block":"set_total","action":"input"},
+      {"pos":"nested","block":"VAR_GET","id":"get_i","parent":"set_total","cat":["Variables"],"action":"spawn"},
+      {"action":"input","value":"i","block":"get_i"}
+    ]
+  },
+  {
+    title: "Test 5 — Accumulate sum (Σ i=1..100)",
+    complexity: "medium · 6 blocks",
+    commands: [
+      {"cat":["CATLOOPS"],"id":"start","action":"spawn","block":"INITIATE"},
+      {"block":"VAR_SET","cat":["Variables"],"action":"spawn","parent":"start","pos":"nested","id":"set_total_init"},
+      {"action":"input","value":"total","block":"set_total_init"},
+      {"parent":"set_total_init","pos":"nested","id":"num_zero","cat":["CATMATH"],"action":"spawn","block":"MATH_NUMBER"},
+      {"action":"input","value":"0","block":"num_zero"},
+      {"action":"spawn","cat":["CATLOOPS"],"block":"CONTROLS_FOR","pos":"next","id":"loop_i","parent":"set_total_init"},
+      {"action":"input","block":"loop_i","value":"i"},
+      {"cat":["CATMATH"],"action":"spawn","block":"MATH_NUMBER","parent":"loop_i","pos":"nested","id":"num_one"},
+      {"action":"input","block":"num_one","value":"1"},
+      {"cat":["CATMATH"],"action":"spawn","block":"MATH_NUMBER","parent":"loop_i","pos":"nested","id":"num_hundred"},
+      {"action":"input","value":"100","block":"num_hundred"},
+      {"cat":["CATMATH"],"action":"spawn","block":"MATH_NUMBER","parent":"loop_i","pos":"nested","id":"num_step_one"},
+      {"block":"num_step_one","value":"1","action":"input"},
+      {"cat":["Variables"],"action":"spawn","block":"VAR_CHANGE","parent":"loop_i","pos":"nested","id":"change_total"},
+      {"block":"change_total","value":"total","action":"input"},
+      {"action":"spawn","cat":["Variables"],"block":"VAR_GET","pos":"nested","id":"get_i","parent":"change_total"},
+      {"block":"get_i","value":"i","action":"input"}
+    ]
+  },
+  {
+    title: "Test 6 — If/else: label = x>10 ? 1 : 0",
+    complexity: "medium · 7 blocks",
+    commands: [
+      {"action":"spawn","cat":["CATLOOPS"],"id":"start","block":"INITIATE"},
+      {"pos":"nested","parent":"start","block":"CONTROLS_IF","cat":["CATLOGIC"],"id":"if_block","action":"spawn"},
+      {"cat":["CATMATH"],"id":"comp1","action":"spawn","pos":"nested","parent":"if_block","block":"LOGIC_COMPARE"},
+      {"cat":["Variables"],"id":"var_x","action":"spawn","block":"VAR_GET","pos":"nested","parent":"comp1"},
+      {"action":"input","value":"x","block":"var_x"},
+      {"cat":["CATMATH"],"id":"num10","action":"spawn","block":"MATH_NUMBER","pos":"nested","parent":"comp1"},
+      {"value":"10","block":"num10","action":"input"},
+      {"value":"GT","block":"comp1","action":"input"},
+      {"block":"VAR_SET","pos":"nested","parent":"if_block","cat":["Variables"],"id":"set_label1","action":"spawn"},
+      {"value":"label","block":"set_label1","action":"input"},
+      {"block":"MATH_NUMBER","pos":"nested","parent":"set_label1","action":"spawn","cat":["CATMATH"],"id":"num1"},
+      {"value":"1","block":"num1","action":"input"},
+      {"cat":["Variables"],"id":"set_label0","action":"spawn","block":"VAR_SET","pos":"nested","parent":"if_block"},
+      {"value":"label","block":"set_label0","action":"input"},
+      {"pos":"nested","parent":"set_label0","block":"MATH_NUMBER","action":"spawn","cat":["CATMATH"],"id":"num0"},
+      {"value":"0","block":"num0","action":"input"}
+    ]
+  },
+  {
+    title: "Test 7 — Loop: y = 5×sin(angle)",
+    complexity: "medium-high · 8 blocks",
+    commands: [
+      {"block":"INITIATE","id":"start","action":"spawn","cat":["CATLOOPS"]},
+      {"pos":"nested","parent":"start","action":"spawn","id":"loop1","block":"CONTROLS_FOR","cat":["CATLOOPS"]},
+      {"value":"angle","block":"loop1","action":"input"},
+      {"value":"0","block":"loop1","action":"input"},
+      {"block":"loop1","value":"360","action":"input"},
+      {"action":"input","block":"loop1","value":"10"},
+      {"pos":"nested","parent":"loop1","action":"spawn","id":"set_y","block":"VAR_SET","cat":["Variables"]},
+      {"value":"y","block":"set_y","action":"input"},
+      {"action":"spawn","pos":"nested","parent":"set_y","cat":["CATMATH"],"block":"MATH_ARITHMETIC","id":"multiply_op"},
+      {"block":"multiply_op","value":"×","action":"input"},
+      {"cat":["CATMATH"],"block":"MATH_NUMBER","id":"num_5","action":"spawn","pos":"nested","parent":"multiply_op"},
+      {"block":"num_5","value":"5","action":"input"},
+      {"pos":"nested","parent":"multiply_op","action":"spawn","cat":["CATMATH"],"id":"sin_op","block":"MATH_TRIG"},
+      {"action":"input","value":"sin","block":"sin_op"},
+      {"id":"var_angle","block":"VAR_GET","cat":["Variables"],"pos":"nested","parent":"sin_op","action":"spawn"},
+      {"action":"input","value":"angle","block":"var_angle"}
+    ]
+  },
+  {
+    title: "Test 8 — Quadratic discriminant b²−4ac",
+    complexity: "high · 10 blocks",
+    commands: [
+      {"cat":["CATLOOPS"],"id":"start","action":"spawn","block":"INITIATE"},
+      {"parent":"start","id":"set_a","pos":"nested","cat":["Variables"],"block":"VAR_SET","action":"spawn"},
+      {"action":"input","block":"set_a","value":"a"},
+      {"parent":"set_a","id":"num_1","block":"MATH_NUMBER","action":"spawn","pos":"nested","cat":["CATMATH"]},
+      {"action":"input","block":"num_1","value":"1"},
+      {"block":"VAR_SET","action":"spawn","pos":"next","cat":["Variables"],"parent":"set_a","id":"set_b"},
+      {"action":"input","block":"set_b","value":"b"},
+      {"parent":"set_b","id":"num_5","cat":["CATMATH"],"pos":"nested","action":"spawn","block":"MATH_NUMBER"},
+      {"action":"input","block":"num_5","value":"5"},
+      {"parent":"set_b","id":"set_c","pos":"next","cat":["Variables"],"block":"VAR_SET","action":"spawn"},
+      {"action":"input","block":"set_c","value":"c"},
+      {"action":"spawn","block":"MATH_NUMBER","cat":["CATMATH"],"pos":"nested","parent":"set_c","id":"num_6"},
+      {"action":"input","block":"num_6","value":"6"},
+      {"parent":"set_c","id":"set_disc","pos":"next","cat":["Variables"],"block":"VAR_SET","action":"spawn"},
+      {"action":"input","block":"set_disc","value":"discriminant"},
+      {"parent":"set_disc","id":"sub_disc","action":"spawn","block":"MATH_ARITHMETIC","cat":["CATMATH"],"pos":"nested"},
+      {"value":"-","action":"input","block":"sub_disc"},
+      {"action":"spawn","block":"MATH_ARITHMETIC","cat":["CATMATH"],"pos":"nested","parent":"sub_disc","id":"mul_bb"},
+      {"value":"×","action":"input","block":"mul_bb"},
+      {"parent":"mul_bb","id":"var_b_left","cat":["Variables"],"pos":"nested","action":"spawn","block":"VAR_GET"},
+      {"block":"var_b_left","action":"input","value":"b"},
+      {"pos":"nested","cat":["Variables"],"block":"VAR_GET","action":"spawn","parent":"mul_bb","id":"var_b_right"},
+      {"block":"var_b_right","action":"input","value":"b"},
+      {"pos":"nested","cat":["CATMATH"],"block":"MATH_ARITHMETIC","action":"spawn","parent":"sub_disc","id":"mul_4ac"},
+      {"block":"mul_4ac","action":"input","value":"×"},
+      {"parent":"mul_4ac","id":"mul_4a","pos":"nested","cat":["CATMATH"],"block":"MATH_ARITHMETIC","action":"spawn"},
+      {"action":"input","block":"mul_4a","value":"×"},
+      {"parent":"mul_4a","id":"num_4","action":"spawn","block":"MATH_NUMBER","cat":["CATMATH"],"pos":"nested"},
+      {"action":"input","block":"num_4","value":"4"},
+      {"block":"VAR_GET","action":"spawn","pos":"nested","cat":["Variables"],"parent":"mul_4a","id":"var_a"},
+      {"action":"input","block":"var_a","value":"a"},
+      {"action":"spawn","block":"VAR_GET","cat":["Variables"],"pos":"nested","parent":"mul_4ac","id":"var_c"},
+      {"value":"c","action":"input","block":"var_c"}
+    ]
+  },
+  {
+    title: "Test 9 — Loop: even/odd branch",
+    complexity: "high · 10 blocks",
+    commands: [
+      {"id":"start","action":"spawn","block":"INITIATE"},
+      {"action":"spawn","id":"loop","parent":"start","block":"CONTROLS_FOR","pos":"nested","cat":["CATLOOPS"]},
+      {"block":"loop","value":"n","action":"input"},
+      {"id":"num_start","parent":"loop","action":"spawn","pos":"nested","block":"MATH_NUMBER","cat":["CATMATH"]},
+      {"action":"input","block":"num_start","value":"1"},
+      {"pos":"nested","block":"MATH_NUMBER","id":"num_end","parent":"loop","action":"spawn","cat":["CATMATH"]},
+      {"action":"input","block":"num_end","value":"20"},
+      {"pos":"nested","block":"MATH_NUMBER","id":"num_by","parent":"loop","action":"spawn","cat":["CATMATH"]},
+      {"action":"input","block":"num_by","value":"1"},
+      {"block":"CONTROLS_IF","pos":"nested","action":"spawn","id":"if_block","parent":"loop","cat":["CATLOOPS"]},
+      {"block":"LOGIC_COMPARE","pos":"nested","action":"spawn","id":"compare_even","parent":"if_block","cat":["CATMATH"]},
+      {"value":"EQ","action":"input","block":"compare_even"},
+      {"action":"spawn","id":"mod_op","parent":"compare_even","block":"MATH_ARITHMETIC","pos":"nested","cat":["CATMATH"]},
+      {"block":"mod_op","value":"MODULO","action":"input"},
+      {"block":"VAR_GET","pos":"nested","action":"spawn","id":"var_n_mod","parent":"mod_op","cat":["Variables"]},
+      {"value":"n","action":"input","block":"var_n_mod"},
+      {"block":"MATH_NUMBER","pos":"nested","action":"spawn","id":"num_2","parent":"mod_op","cat":["CATMATH"]},
+      {"action":"input","block":"num_2","value":"2"},
+      {"pos":"nested","parent":"compare_even","block":"MATH_NUMBER","action":"spawn","id":"num_0","cat":["CATMATH"]},
+      {"action":"input","block":"num_0","value":"0"},
+      {"action":"spawn","id":"set_even","parent":"if_block","block":"VAR_SET","pos":"nested","cat":["Variables"]},
+      {"value":"even","action":"input","block":"set_even"},
+      {"pos":"nested","block":"VAR_GET","id":"var_n_even","parent":"set_even","action":"spawn","cat":["Variables"]},
+      {"block":"var_n_even","value":"n","action":"input"},
+      {"id":"set_odd","parent":"if_block","action":"spawn","pos":"nested","block":"VAR_SET","cat":["Variables"]},
+      {"value":"odd","action":"input","block":"set_odd"},
+      {"block":"VAR_GET","pos":"nested","action":"spawn","id":"var_n_odd","parent":"set_odd","cat":["Variables"]},
+      {"value":"n","action":"input","block":"var_n_odd"}
+    ]
+  },
+  {
+    title: "Test 10 — Nested loops with conditional sum",
+    complexity: "very high · 14+ blocks",
+    commands: [
+      {"action":"spawn","id":"start","block":"INITIATE","cat":["CATLOOPS"]},
+      {"pos":"nested","parent":"start","id":"set_total","action":"spawn","block":"VAR_SET","cat":["Variables"]},
+      {"value":"total","block":"set_total","action":"input"},
+      {"pos":"nested","parent":"set_total","id":"num_0","action":"spawn","block":"MATH_NUMBER","cat":["CATMATH"]},
+      {"value":"0","block":"num_0","action":"input"},
+      {"block":"CONTROLS_FOR","cat":["CATLOOPS"],"action":"spawn","id":"outer_loop","pos":"next","parent":"set_total"},
+      {"value":"i","block":"outer_loop","action":"input"},
+      {"action":"spawn","block":"MATH_NUMBER","cat":["CATMATH"],"pos":"nested","parent":"outer_loop","id":"num_1_os"},
+      {"value":"1","block":"num_1_os","action":"input"},
+      {"cat":["CATMATH"],"block":"MATH_NUMBER","action":"spawn","id":"num_5_oe","parent":"outer_loop","pos":"nested"},
+      {"action":"input","value":"5","block":"num_5_oe"},
+      {"id":"num_1_ostep","parent":"outer_loop","pos":"nested","cat":["CATMATH"],"block":"MATH_NUMBER","action":"spawn"},
+      {"action":"input","value":"1","block":"num_1_ostep"},
+      {"block":"CONTROLS_FOR","cat":["CATLOOPS"],"action":"spawn","id":"inner_loop","pos":"nested","parent":"outer_loop"},
+      {"action":"input","value":"j","block":"inner_loop"},
+      {"action":"spawn","block":"MATH_NUMBER","cat":["CATMATH"],"pos":"nested","parent":"inner_loop","id":"num_1_is"},
+      {"action":"input","value":"1","block":"num_1_is"},
+      {"id":"num_5_ie","parent":"inner_loop","pos":"nested","cat":["CATMATH"],"block":"MATH_NUMBER","action":"spawn"},
+      {"action":"input","value":"5","block":"num_5_ie"},
+      {"action":"spawn","block":"MATH_NUMBER","cat":["CATMATH"],"pos":"nested","parent":"inner_loop","id":"num_1_istep"},
+      {"action":"input","value":"1","block":"num_1_istep"},
+      {"pos":"nested","parent":"inner_loop","id":"if_cond","action":"spawn","block":"CONTROLS_IF","cat":["CATLOOPS"]},
+      {"parent":"if_cond","pos":"nested","id":"cmp_gt10","action":"spawn","cat":["CATLOGIC"],"block":"LOGIC_COMPARE"},
+      {"action":"input","value":"GT","block":"cmp_gt10"},
+      {"cat":["CATMATH"],"block":"MATH_ARITHMETIC","action":"spawn","id":"mul_ij_cmp","parent":"cmp_gt10","pos":"nested"},
+      {"action":"input","value":"×","block":"mul_ij_cmp"},
+      {"parent":"mul_ij_cmp","pos":"nested","id":"vgi_cmp","action":"spawn","cat":["Variables"],"block":"VAR_GET"},
+      {"action":"input","value":"i","block":"vgi_cmp"},
+      {"action":"spawn","block":"VAR_GET","cat":["Variables"],"pos":"nested","parent":"mul_ij_cmp","id":"vgj_cmp"},
+      {"value":"j","block":"vgj_cmp","action":"input"},
+      {"pos":"nested","parent":"cmp_gt10","id":"num_10","action":"spawn","block":"MATH_NUMBER","cat":["CATMATH"]},
+      {"action":"input","value":"10","block":"num_10"},
+      {"id":"chg_total","parent":"if_cond","pos":"nested","cat":["Variables"],"block":"VAR_CHANGE","action":"spawn"},
+      {"value":"total","block":"chg_total","action":"input"},
+      {"action":"spawn","cat":["CATMATH"],"block":"MATH_ARITHMETIC","parent":"chg_total","pos":"nested","id":"mul_ij_add"},
+      {"value":"×","block":"mul_ij_add","action":"input"},
+      {"pos":"nested","parent":"mul_ij_add","id":"vgi_add","action":"spawn","block":"VAR_GET","cat":["Variables"]},
+      {"action":"input","value":"i","block":"vgi_add"},
+      {"action":"spawn","block":"VAR_GET","cat":["Variables"],"pos":"nested","parent":"mul_ij_add","id":"vgj_add"},
+      {"action":"input","value":"j","block":"vgj_add"}
+    ]
+  }
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Block type map: Msg key  →  native Blockly type string
+// ─────────────────────────────────────────────────────────────────────────────
+const MSG_TO_TYPE = {
+  INITIATE:                    null,              // phantom cap block
+  START_BLOCK:                 null,
+  VAR_SET:                     'variables_set',
+  VAR_GET:                     'variables_get',
+  VAR_CHANGE:                  'math_change',
+  VAR_TOGGLE:                  'variables_set',
+  VARIABLES_GET:               'variables_get',
+  VARIABLES_SET:               'variables_set',
+  MATH_CHANGE:                 'math_change',
+  CONTROLS_FOR:                'controls_for',
+  CONTROLS_IF:                 'controls_if',
+  CONTROLS_REPEAT_EXT:         'controls_repeat_ext',
+  CONTROLS_WHILEUNTILFOREVER:  'controls_whileUntil',
+  CONTROLS_FLOW_STATEMENTS:    'controls_flow_statements',
+  MATH_NUMBER:                 'math_number',
+  MATH_ARITHMETIC:             'math_arithmetic',
+  MATH_TRIG:                   'math_trig',
+  MATH_SINGLE:                 'math_single',
+  MATH_ROUND:                  'math_round',
+  MATH_CONSTANT:               'math_constant',
+  MATH_RANDOM_INT:             'math_random_int',
+  MATH_RANDOM_FLOAT:           'math_random_float',
+  MATH_NUMBER_PROPERTY:        'math_number_property',
+  MATH_CONSTRAIN:              'math_constrain',
+  LOGIC_COMPARE:               'logic_compare',
+  LOGIC_BOOLEAN:               'logic_boolean',
+  LOGIC_NEGATE:                'logic_negate',
+  LOGIC_OPERATION_EXTENDED:    'logic_operation',
+  LISTS_CREATE_EMPTY:          'lists_create_empty',
+  LISTS_CREATE_WITH:           'lists_create_with',
+  LISTS_LENGTH:                'lists_length',
+  LISTS_ISEMPTY:               'lists_isEmpty',
+  LISTS_GETINDEX:              'lists_getIndex',
+  LISTS_SETINDEX:              'lists_setIndex',
+  LISTS_SORT:                  'lists_sort',
+  LISTS_SPLIT:                 'lists_split',
+  MY_TEXT:                     'text',
+  TEXT_JOIN:                   'text_join',
+};
+
+// Operator / value aliases
+const OP_ALIASES = {
+  '×': 'MULTIPLY', '÷': 'DIVIDE', '*': 'MULTIPLY', '/': 'DIVIDE',
+  '+': 'ADD', '-': 'MINUS', '^': 'POWER', 'MODULO': 'MODULO',
+  'sin': 'SIN', 'cos': 'COS', 'tan': 'TAN',
+  'asin': 'ASIN', 'acos': 'ACOS', 'atan': 'ATAN',
+};
+
+function normalizeVal(v) { return OP_ALIASES[v] ?? v; }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Workspace setup
+// ─────────────────────────────────────────────────────────────────────────────
 const ws = Blockly.inject('blocklyDiv', {
   toolbox: document.getElementById('toolbox'),
-  grid: { spacing: 20, length: 3, colour: '#1e293b', snap: true },
-  move: { scrollbars: true, drag: true, wheel: true },
-  zoom: { controls: true, wheel: true, startScale: 0.9 },
-  theme: Blockly.Themes.Dark,
+  grid:   { spacing: 20, length: 3, colour: '#1e293b', snap: true },
+  move:   { scrollbars: true, drag: true, wheel: true },
+  zoom:   { controls: true, wheel: true, startScale: 0.85 },
+  theme:  Blockly.Themes.Dark,
   renderer: 'zelos',
 });
 
+window.addEventListener('resize', () => Blockly.svgResize(ws));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 function setStatus(msg, type = '') {
-  const el = document.getElementById('status');
+  const el = document.getElementById('statusBar');
   el.textContent = msg;
   el.className = type;
 }
 
-function log(msg) {
-  document.getElementById('jsonOut').textContent = msg;
+let logLines = [];
+function appendLog(cls, msg) {
+  logLines.push(`<span class="${cls}">${escHtml(msg)}</span>`);
+  document.getElementById('logOut').innerHTML = logLines.join('\n');
+  document.getElementById('logOut').scrollTop = 999999;
 }
-
-// ── Core placement helpers ──────────────────────────────────────
-function mkBlock(type) {
-  const b = ws.newBlock(type);
-  b.initSvg();
-  b.render();
-  return b;
-}
-
-function num(value) {
-  const b = mkBlock('math_number');
-  b.setFieldValue(String(value), 'NUM');
-  return b;
-}
-
-function varGet(name) {
-  const b = mkBlock('variables_get');
-  b.setFieldValue(name, 'VAR');
-  return b;
-}
-
-function varSet(name, valueBlock) {
-  const b = mkBlock('variables_set');
-  b.setFieldValue(name, 'VAR');
-  b.getInput('VALUE').connection.connect(valueBlock.outputConnection);
-  return b;
-}
-
-function arithmetic(op, blockA, blockB) {
-  const b = mkBlock('math_arithmetic');
-  b.setFieldValue(op, 'OP'); // ADD MINUS MULTIPLY DIVIDE POWER
-  b.getInput('A').connection.connect(blockA.outputConnection);
-  b.getInput('B').connection.connect(blockB.outputConnection);
-  return b;
-}
-
-function trig(op, inputBlock) {
-  const b = mkBlock('math_trig');
-  b.setFieldValue(op, 'OP'); // SIN COS TAN ASIN ACOS ATAN
-  b.getInput('NUM').connection.connect(inputBlock.outputConnection);
-  return b;
-}
-
-// ── Position top-level blocks in a column ──────────────────────
-let nextY = 20;
-function place(block, x = 20) {
-  block.moveBy(x, nextY);
-  nextY += 120;
-  return block;
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function clearWs() {
   ws.clear();
-  nextY = 20;
-  log('Workspace cleared.');
+  logLines = [];
+  document.getElementById('logOut').innerHTML = 'Workspace cleared.';
   setStatus('Cleared');
-}
-
-// ── Tests ──────────────────────────────────────────────────────
-const TESTS = {
-  // Test 1: for(angle=-360; angle<=360; angle+=10) { graph(angle, 5*sin(angle)) }
-  // Uses: controls_for, math_number, math_trig, math_arithmetic, variables_get
-  forLoopSin() {
-    const loop = mkBlock('controls_for');
-
-    // Loop variable: "angle"
-    loop.setFieldValue('angle', 'VAR');
-
-    // FROM: -360
-    loop.getInput('FROM').connection.connect(num(-360).outputConnection);
-    // TO: 360
-    loop.getInput('TO').connection.connect(num(360).outputConnection);
-    // BY: 10
-    loop.getInput('BY').connection.connect(num(10).outputConnection);
-
-    // Body: y = 5 * sin(angle)
-    // sin(angle)
-    const sinBlock = trig('SIN', varGet('angle'));
-    // 5 * sin(angle)
-    const amplitudeExpr = arithmetic('MULTIPLY', num(5), sinBlock);
-    // print_text or just a set variable to prove it's wired
-    const setY = varSet('y', amplitudeExpr);
-
-    // Also set x = angle
-    const setX = varSet('x', varGet('angle'));
-
-    // Chain setX → setY in the DO slot
-    loop.getInput('DO').connection.connect(setX.previousConnection);
-    setX.nextConnection.connect(setY.previousConnection);
-
-    place(loop);
-    return loop;
-  },
-
-  // Test 2: arithmetic chain a=(3+4)*2 → b=a-1
-  arithmetic() {
-    // (3 + 4)
-    const sum = arithmetic('ADD', num(3), num(4));
-    // (3+4) * 2
-    const product = arithmetic('MULTIPLY', sum, num(2));
-    // a = (3+4)*2
-    const setA = varSet('a', product);
-    place(setA);
-
-    // b = a - 1
-    const setB = varSet('b', arithmetic('MINUS', varGet('a'), num(1)));
-    place(setB);
-
-    return setA;
-  },
-
-  // Test 3: list ops — create list, set item, get item
-  listOps() {
-    // myList = []
-    const emptyList = mkBlock('lists_create_empty');
-    const setList = varSet('myList', emptyList);
-    place(setList);
-
-    // Also create a with-items list [1, 2, 3]
-    const listWith = mkBlock('lists_create_with');
-    listWith.itemCount_ = 3;
-    // Re-init mutation for 3 items
-    if (listWith.itemCount_ !== undefined) {
-      // lists_create_with starts with 3 items by default
-    }
-    listWith.getInput('ADD0')?.connection.connect(num(1).outputConnection);
-    listWith.getInput('ADD1')?.connection.connect(num(2).outputConnection);
-    listWith.getInput('ADD2')?.connection.connect(num(3).outputConnection);
-    const setFilled = varSet('filled', listWith);
-    place(setFilled);
-
-    return setList;
-  },
-
-  // Test 4: if/else
-  ifLogic() {
-    const ifBlock = mkBlock('controls_if');
-
-    // Condition: 5 > 3
-    const compare = mkBlock('logic_compare');
-    compare.setFieldValue('GT', 'OP');
-    compare.getInput('A').connection.connect(num(5).outputConnection);
-    compare.getInput('B').connection.connect(num(3).outputConnection);
-
-    ifBlock.getInput('IF0').connection.connect(compare.outputConnection);
-    // DO0: set result = 1
-    ifBlock.getInput('DO0').connection.connect(varSet('result', num(1)).previousConnection);
-
-    place(ifBlock);
-    return ifBlock;
-  },
-};
-
-function runTest(name) {
-  clearWs();
-  try {
-    const start = performance.now();
-    const rootBlock = TESTS[name]();
-    const elapsed = (performance.now() - start).toFixed(1);
-
-    const blockCount = ws.getAllBlocks(false).length;
-    setStatus(`✓ ${name}: ${blockCount} blocks placed in ${elapsed}ms`, 'ok');
-
-    // Show workspace JSON
-    captureJson();
-  } catch (e) {
-    setStatus(`✗ ${name}: ${e.message}`, 'err');
-    log(`ERROR: ${e.stack}`);
-    console.error(e);
-  }
+  document.querySelectorAll('#testListUl li').forEach(li => li.classList.remove('active'));
 }
 
 function captureJson() {
   try {
     const json = Blockly.serialization.workspaces.save(ws);
-    log(JSON.stringify(json, null, 2));
-  } catch (e) {
-    log(`JSON capture failed: ${e.message}`);
+    appendLog('log-info', '── Workspace JSON ──\n' + JSON.stringify(json, null, 2));
+  } catch(e) {
+    appendLog('log-err', 'JSON capture failed: ' + e.message);
   }
 }
 
-// Resize Blockly when window changes
-window.addEventListener('resize', () => Blockly.svgResize(ws));
+// ─────────────────────────────────────────────────────────────────────────────
+// Executor  — translates spawn/input commands into Blockly API calls
+// ─────────────────────────────────────────────────────────────────────────────
+function executeScript(commands) {
+  const blockMap   = {};  // logicalId  → Blockly block (null = phantom)
+  const valCursors = {};  // blockId    → next unfilled VALUE input index
+  const statCursors= {};  // blockId    → next unfilled STATEMENT input index
+  const fieldCursors={};  // blockId    → {fieldIdx, shadowInputIdx}
+
+  let topY = 20;
+  let placed = 0, warnings = 0, errors = 0;
+
+  function valCur(id)  { if (!valCursors[id])  valCursors[id]  = 0; return valCursors; }
+  function statCur(id) { if (!statCursors[id]) statCursors[id] = 0; return statCursors; }
+
+  function mkBlock(type) {
+    const b = ws.newBlock(type);
+    b.initSvg();
+    b.render();
+    return b;
+  }
+
+  // Try to set a field on block b with value v.
+  // Uses a per-block cursor so multiple `input` commands advance through fields in order.
+  function applyInput(b, blockId, rawVal) {
+    if (!fieldCursors[blockId]) fieldCursors[blockId] = { fi: 0, si: 0 };
+    const fc = fieldCursors[blockId];
+    const v = normalizeVal(rawVal);
+
+    // Collect all editable fields in visual order
+    const fields = [];
+    for (const inp of b.inputList) {
+      for (const f of inp.fieldRow) {
+        if (f.name && !(f instanceof Blockly.FieldLabel)) fields.push({ block: b, field: f });
+      }
+    }
+    // After direct fields, collect shadow block fields (for loop bounds etc.)
+    const shadowFields = [];
+    for (const inp of b.inputList) {
+      if (!inp.connection) continue;
+      const target = inp.connection.targetBlock();
+      if (target && target.isShadow()) {
+        for (const si of target.inputList) {
+          for (const f of si.fieldRow) {
+            if (f.name && !(f instanceof Blockly.FieldLabel))
+              shadowFields.push({ block: target, field: f });
+          }
+        }
+      }
+    }
+
+    const all = [...fields, ...shadowFields];
+
+    if (fc.fi < all.length) {
+      const { block: tb, field: f } = all[fc.fi++];
+      try {
+        tb.setFieldValue(v, f.name);
+        appendLog('log-ok', `  input [${blockId}].${f.name} = "${v}"`);
+        return true;
+      } catch(e) {
+        appendLog('log-warn', `  input [${blockId}].${f.name} = "${v}" FAILED: ${e.message}`);
+        warnings++;
+        return false;
+      }
+    } else {
+      appendLog('log-warn', `  input [${blockId}] no field slot for "${v}" (cursor=${fc.fi})`);
+      warnings++;
+      return false;
+    }
+  }
+
+  for (const cmd of commands) {
+    // ── spawn ──────────────────────────────────────────────────────────────
+    if (cmd.action === 'spawn') {
+      const msgKey = cmd.block;
+      let nativeType;
+
+      if (msgKey in MSG_TO_TYPE) {
+        nativeType = MSG_TO_TYPE[msgKey];
+      } else {
+        // Try lowercase as a fallback (e.g. "controls_for" already native)
+        nativeType = msgKey.toLowerCase();
+      }
+
+      // Phantom block (INITIATE etc.)
+      if (nativeType === null) {
+        blockMap[cmd.id] = null;
+        appendLog('log-info', `[phantom] ${msgKey} id=${cmd.id}`);
+        continue;
+      }
+
+      let b;
+      try {
+        b = mkBlock(nativeType);
+      } catch(e) {
+        appendLog('log-err', `[spawn] unknown type "${nativeType}" (${msgKey}): ${e.message}`);
+        errors++;
+        if (cmd.id) blockMap[cmd.id] = null;
+        continue;
+      }
+
+      // Connect to parent
+      if (cmd.parent != null) {
+        const parentBlock = blockMap[cmd.parent];
+
+        if (parentBlock === null) {
+          // Phantom parent — place as top-level block
+          b.moveBy(20, topY);
+          topY += 200;
+        } else if (!parentBlock) {
+          appendLog('log-warn', `[spawn] parent "${cmd.parent}" not found for ${cmd.id}`);
+          b.moveBy(20, topY); topY += 200;
+          warnings++;
+        } else if (cmd.pos === 'next') {
+          // Statement chain
+          if (parentBlock.nextConnection && b.previousConnection) {
+            try {
+              parentBlock.nextConnection.connect(b.previousConnection);
+            } catch(e) {
+              appendLog('log-warn', `[spawn] next-connect ${cmd.id}: ${e.message}`);
+              b.moveBy(20, topY); topY += 200; warnings++;
+            }
+          } else {
+            appendLog('log-warn', `[spawn] ${cmd.id} pos=next but missing nextConnection or previousConnection`);
+            b.moveBy(20, topY); topY += 200; warnings++;
+          }
+        } else {
+          // Nested — positional socket fill
+          if (b.outputConnection) {
+            // VALUE block → fill next VALUE input on parent
+            if (!valCursors[cmd.parent]) valCursors[cmd.parent] = 0;
+            const valueInputs = parentBlock.inputList.filter(i => i.type === Blockly.INPUT_VALUE);
+            const inp = valueInputs[valCursors[cmd.parent]];
+            if (inp && inp.connection) {
+              try {
+                inp.connection.connect(b.outputConnection);
+                valCursors[cmd.parent]++;
+              } catch(e) {
+                appendLog('log-warn', `[spawn] value-connect ${cmd.id} -> ${cmd.parent}[${valCursors[cmd.parent]}]: ${e.message}`);
+                warnings++;
+              }
+            } else {
+              appendLog('log-warn', `[spawn] no value-input slot [${valCursors[cmd.parent]}] on ${cmd.parent} for ${cmd.id}`);
+              warnings++;
+            }
+          } else {
+            // STATEMENT block → fill next STATEMENT input on parent
+            if (!statCursors[cmd.parent]) statCursors[cmd.parent] = 0;
+            const statInputs = parentBlock.inputList.filter(i => i.type === Blockly.NEXT_STATEMENT);
+            const inp = statInputs[statCursors[cmd.parent]];
+            if (inp && inp.connection) {
+              try {
+                inp.connection.connect(b.previousConnection);
+                statCursors[cmd.parent]++;
+              } catch(e) {
+                appendLog('log-warn', `[spawn] stat-connect ${cmd.id} -> ${cmd.parent}[${statCursors[cmd.parent]}]: ${e.message}`);
+                warnings++;
+              }
+            } else {
+              appendLog('log-warn', `[spawn] no stat-input slot [${statCursors[cmd.parent]}] on ${cmd.parent} for ${cmd.id}`);
+              warnings++;
+            }
+          }
+        }
+      } else {
+        // No parent — top-level
+        b.moveBy(20, topY);
+        topY += 200;
+      }
+
+      if (cmd.id) blockMap[cmd.id] = b;
+      placed++;
+      appendLog('log-ok', `[spawn] ${msgKey} → ${nativeType} id=${cmd.id ?? '—'}`);
+
+    // ── input ──────────────────────────────────────────────────────────────
+    } else if (cmd.action === 'input') {
+      const b = blockMap[cmd.block];
+      if (!b) {
+        appendLog('log-warn', `[input] target "${cmd.block}" not found`);
+        warnings++;
+        continue;
+      }
+      applyInput(b, cmd.block, cmd.value);
+
+    // ── clear ──────────────────────────────────────────────────────────────
+    } else if (cmd.action === 'clear') {
+      ws.clear();
+      topY = 20;
+      appendLog('log-info', '[clear] workspace cleared');
+    }
+  }
+
+  return { placed, warnings, errors, total: commands.length };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Run a test by index
+// ─────────────────────────────────────────────────────────────────────────────
+let activeIdx = null;
+
+function runTest(idx) {
+  const test = TESTS[idx];
+  ws.clear();
+  logLines = [];
+  appendLog('log-info', `▶ ${test.title}`);
+  appendLog('log-info', `  ${test.commands.length} commands`);
+  appendLog('log-info', '─'.repeat(40));
+
+  // Mark active in sidebar
+  document.querySelectorAll('#testListUl li').forEach((li, i) => {
+    li.classList.toggle('active', i === idx);
+  });
+  activeIdx = idx;
+
+  const t0 = performance.now();
+  let result;
+  try {
+    result = executeScript(test.commands);
+  } catch(e) {
+    appendLog('log-err', 'FATAL: ' + e.message);
+    setStatus('✗ Fatal error', 'err');
+    markListItem(idx, 'fail');
+    return;
+  }
+  const ms = (performance.now() - t0).toFixed(1);
+  const blockCount = ws.getAllBlocks(false).length;
+
+  appendLog('log-info', '─'.repeat(40));
+  appendLog(result.errors > 0 ? 'log-err' : result.warnings > 0 ? 'log-warn' : 'log-ok',
+    `Done in ${ms}ms · placed=${result.placed} · workspace=${blockCount} blocks · warn=${result.warnings} · err=${result.errors}`);
+
+  const statusCls = result.errors > 0 ? 'err' : '';
+  setStatus(`✓ ${blockCount} blocks · ${ms}ms · warn:${result.warnings} err:${result.errors}`, statusCls);
+  markListItem(idx, result.errors > 0 ? 'fail' : 'done');
+}
+
+function markListItem(idx, cls) {
+  const li = document.querySelectorAll('#testListUl li')[idx];
+  if (!li) return;
+  li.classList.remove('done', 'fail');
+  li.classList.add(cls);
+  // update badge
+  const badge = li.querySelector('.test-badge');
+  if (badge) {
+    badge.textContent = cls === 'done' ? '✓ passed' : '✗ errors';
+    badge.className = 'test-badge ' + (cls === 'done' ? 'badge-ok' : 'badge-err');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build sidebar list
+// ─────────────────────────────────────────────────────────────────────────────
+const ul = document.getElementById('testListUl');
+TESTS.forEach((t, i) => {
+  const li = document.createElement('li');
+  li.innerHTML = `
+    <div class="test-title">${escHtml(t.title)}</div>
+    <div class="test-meta">${escHtml(t.complexity)} · ${t.commands.length} cmds</div>
+    <span class="test-badge" style="display:none"></span>`;
+  li.addEventListener('click', () => runTest(i));
+  ul.appendChild(li);
+});
 </script>
 </body>
 </html>

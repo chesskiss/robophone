@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "blockly-test-env",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "5173", "blockly-automation/test-env"],
+      "port": 5173
+    }
+  ]
+}
