@@ -519,6 +519,23 @@ function executeScript(commands) {
     return b;
   }
 
+  function animateBlockIn(b) {
+    const svg = b.getSvgRoot && b.getSvgRoot();
+    if (!svg) return;
+    svg.style.transition = 'none';
+    svg.style.transform = 'translate(-260px, -80px)';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        svg.style.transition = 'transform 0.22s cubic-bezier(0.2, 0, 0.3, 1)';
+        svg.style.transform = '';
+        svg.addEventListener('transitionend', () => {
+          svg.style.transition = '';
+          svg.style.transform = '';
+        }, { once: true });
+      });
+    });
+  }
+
   // Try to set a field on block b with value v.
   // Uses a per-block cursor so multiple `input` commands advance through fields in order.
   function applyInput(b, blockId, rawVal) {
@@ -681,6 +698,7 @@ function executeScript(commands) {
       }
 
       if (cmd.id) blockMap[cmd.id] = b;
+      animateBlockIn(b);
       placed++;
       appendLog('log-ok', `[spawn] ${msgKey} → ${nativeType} id=${cmd.id ?? '—'}`);
 
