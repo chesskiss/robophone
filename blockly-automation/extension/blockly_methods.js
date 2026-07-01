@@ -528,38 +528,16 @@
         // --- PHYSICS ENGINE ---
 
         _spawnPhysical: async function (catPath, blockKey, parentId, positionType) {
-            // PREFERRED PATH: talk to Blockly's object model directly. This is
-            // deterministic (no coordinates, no snap radii, no undo churn) and
-            // self-verifying via child.getParent(). Any failure falls through
-            // to the legacy drag engine below.
             const engine = window.BlocklyApiEngine;
-            if (engine && engine.available()) {
-                try {
-                    const apiId = await this._spawnViaApi(engine, catPath, blockKey, parentId, positionType);
-                    if (apiId) {
-                        if (this._spawnStats) this._spawnStats.api++;
-                        return apiId;
-                    }
-                    console.warn(`⚠️ API spawn for '${blockKey}' returned no block — falling back to drag engine.`);
-                } catch (apiErr) {
-                    console.warn(`⚠️ API spawn for '${blockKey}' failed (${apiErr.message}) — falling back to drag engine.`);
-                }
+            if (!engine || !engine.available()) {
+                throw new Error(`Blockly workspace not available — cannot place '${blockKey}'.`);
             }
-            try {
-                const dragId = await this._spawnPhysicalImpl(catPath, blockKey, parentId, positionType);
-                if (this._spawnStats) this._spawnStats.drag++;
-                return dragId;
-            } catch (e) {
-                // Append the underlying JS stack trace so the user can see
-                // exactly which expression triggered the error (e.g. which
-                // property access on null). The original error message was
-                // being surfaced without the trace, leaving the source line
-                // ambiguous.
-                const stack = (e && e.stack) ? e.stack.split('\n').slice(0, 8).join(' | ') : "(no stack)";
-                const wrapped = new Error(`${e.message || e} @ stack: ${stack}`);
-                wrapped.stack = e.stack;
-                throw wrapped;
+            const apiId = await this._spawnViaApi(engine, catPath, blockKey, parentId, positionType);
+            if (!apiId) {
+                throw new Error(`API spawn for '${blockKey}' returned no block (not in MSG_TO_TYPE and flyout lookup failed).`);
             }
+            if (this._spawnStats) this._spawnStats.api++;
+            return apiId;
         },
 
         // Shared search-term resolution for a block key: canonical fragment
