@@ -56,33 +56,40 @@
 
         getWorkspace: function () {
             if (this._ws && !this._ws.disposed) return this._ws;
+            // 0) captured by blockly_workspace_spy.js before webpack sealed the bundle
+            if (isWorkspace(window.__robophoneWs) && !window.__robophoneWs.disposed) {
+                return (this._ws = window.__robophoneWs);
+            }
             // 1) the official accessor
             try {
                 const w = window.Blockly && window.Blockly.getMainWorkspace && window.Blockly.getMainWorkspace();
                 if (isWorkspace(w)) return (this._ws = w);
             } catch (_) { }
+            // 1.5) direct property — Blockly v6's canonical field set by workspace_svg.js
+            try {
+                const w = window.Blockly && window.Blockly.mainWorkspace;
+                if (isWorkspace(w)) return (this._ws = w);
+            } catch (_) { }
             // 2) a workspace exposed earlier by discovery_helper.js
             if (isWorkspace(window.foundWorkspace)) return (this._ws = window.foundWorkspace);
-            // 3) cheap DOM scan of likely hosts (custom builds sometimes hang
-            //    the workspace off the injection div instead of a global)
+            // 3+4) DOM scan + WorkspaceDB_ — only set _scanDone when something is found,
+            //     so late-loading React pages get retried on the next spawn.
             if (!this._scanDone) {
-                this._scanDone = true; // pay the scan at most once per run
                 const hosts = document.querySelectorAll('.injectionDiv, .blocklySvg, [class*="blockly"]');
                 for (const el of hosts) {
-                    if (isWorkspace(el.workspace)) return (this._ws = el.workspace);
-                    if (isWorkspace(el.blockly_workspace)) return (this._ws = el.blockly_workspace);
+                    if (isWorkspace(el.workspace)) { this._scanDone = true; return (this._ws = el.workspace); }
+                    if (isWorkspace(el.blockly_workspace)) { this._scanDone = true; return (this._ws = el.blockly_workspace); }
                 }
-                // 4) scan WorkspaceDB_ — Blockly's own registry, available in
-                //    builds that don't expose getMainWorkspace()
                 try {
                     const db = window.Blockly && window.Blockly.Workspace && window.Blockly.Workspace.WorkspaceDB_;
                     if (db && typeof db === "object") {
                         for (const id of Object.keys(db)) {
                             const cand = db[id];
-                            if (isWorkspace(cand) && !cand.isFlyout) return (this._ws = cand);
+                            if (isWorkspace(cand) && !cand.isFlyout) { this._scanDone = true; return (this._ws = cand); }
                         }
                     }
                 } catch (_) { }
+                // Don't set _scanDone = true here — retry on next spawn until found.
             }
             return null;
         },
@@ -148,12 +155,38 @@
             try {
                 const block = ws.newBlock(type);
                 if (block.initSvg) block.initSvg();
+                // ws.newBlock() skips the flyout XML that normally attaches
+                // shadow blocks to empty value inputs (e.g. controls_for's
+                // FROM/TO/BY, math_arithmetic's A/B). Without shadows those
+                // inputs have no editable fields and all subsequent 'input'
+                // commands pile into the one field that does exist.
+                this._initValueShadows(block, ws);
                 if (block.render) block.render();
                 console.log(`⚡ [API direct] spawned '${blockKey}' → '${type}' (id=${block.id})`);
                 return block;
             } catch (e) {
                 console.warn(`[API direct] newBlock('${type}') threw: ${e.message}`);
                 return null;
+            }
+        },
+
+        // Attach a math_number shadow to every empty value input on a block.
+        // Called right after initSvg() and before render() so the block has
+        // correct field slots before any 'input' commands target it.
+        _initValueShadows: function (block, ws) {
+            const INPUT_VALUE = connType("INPUT_VALUE"); // 1
+            for (const input of block.inputList || []) {
+                const conn = input.connection;
+                if (!conn || conn.type !== INPUT_VALUE) continue;
+                if (conn.targetBlock()) continue; // already occupied
+                try {
+                    const shadow = ws.newBlock("math_number");
+                    shadow.setShadow(true);
+                    if (shadow.initSvg) shadow.initSvg();
+                    conn.connect(shadow.outputConnection);
+                } catch (e) {
+                    console.warn(`[API] shadow init skipped for input '${input.name}' on '${block.type}': ${e.message}`);
+                }
             }
         },
 

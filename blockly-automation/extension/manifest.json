@@ -23,6 +23,16 @@
                 "<all_urls>"
             ],
             "js": [
+                "blockly_workspace_spy.js"
+            ],
+            "world": "MAIN",
+            "run_at": "document_start"
+        },
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
                 "blockly_api_engine.js",
                 "blockly_methods.js"
             ],

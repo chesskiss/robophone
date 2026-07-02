@@ -61,24 +61,6 @@ const function_declarations = [
             required: ["script"]
         }
     },
-    {
-        name: "load_workspace",
-        description: "Replace the entire Blockly workspace with a new program defined as a Blockly serialization JSON object. Use this for ALL new programs and complete rewrites — it is more reliable than execute_blockly_script because it uses exact Blockly field names and atomic loading. The workspace is cleared first. Use execute_blockly_script only for targeted modifications of the current program.",
-        parameters: {
-            type: "OBJECT",
-            properties: {
-                workspace_json: {
-                    type: "OBJECT",
-                    description: "Blockly workspace serialization JSON. Top-level format: {\"blocks\": {\"languageVersion\": 0, \"blocks\": [...]}}. Each block uses lowercase \"type\" (e.g. \"controls_for\"), \"fields\" (exact internal names), and \"inputs\" (exact socket names). Field values for dropdowns use their internal string codes (e.g. OP: \"MULTIPLY\" not \"×\")."
-                },
-                description: {
-                    type: "STRING",
-                    description: "One-line description of what this program does (for debug log)."
-                }
-            },
-            required: ["workspace_json"]
-        }
-    }
 ];
 
 const tools = [{ function_declarations }];
@@ -1425,6 +1407,16 @@ function normalizeGeneratedScript(script, existingIds) {
                 knownIds.add(normalized.id);
             }
             out.push(normalized);
+            // Gemini sometimes embeds the field value directly on the spawn
+            // command (e.g. MATH_NUMBER with value:"42"). The executor only
+            // reads action:"input" commands, so expand these inline values now.
+            if (normalized.id && typeof normalized.value === "string" && normalized.value.trim() !== "") {
+                const inlineVal = normalized.value.trim();
+                if (!knownIds.has(inlineVal)) {
+                    out.push({ action: "input", block: normalized.id, value: inlineVal });
+                    console.log(`[normalize] expanded inline spawn value '${inlineVal}' → input on '${normalized.id}'`);
+                }
+            }
             continue;
         }
 

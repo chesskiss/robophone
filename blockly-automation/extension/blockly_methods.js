@@ -642,20 +642,27 @@
             // __phantom__ means the parent was INITIATE — treat child as top-level.
             const effectiveParentId = (parentId === "__phantom__") ? null : parentId;
 
-            try {
-                if (effectiveParentId) {
-                    const parentBlock = this._resolveWorkspaceBlock(effectiveParentId);
-                    if (!parentBlock) throw new Error(`Parent runtime id '${effectiveParentId}' not resolvable to a workspace block.`);
-                    const res = engine.connect(parentBlock, newBlock, positionType);
-                    if (!res.ok) throw new Error(`connect failed: ${res.why}`);
-                    console.log(`🔗 [API] '${blockKey}' connected via ${res.mode}.`);
-                } else {
+            if (effectiveParentId) {
+                const parentBlock = this._resolveWorkspaceBlock(effectiveParentId);
+                if (!parentBlock) {
+                    console.warn(`⚠️ [API] parent '${effectiveParentId}' not resolvable — placing '${blockKey}' as root.`);
                     engine.positionAsRoot(newBlock);
-                    console.log(`📍 [API] '${blockKey}' placed as a root block.`);
+                } else {
+                    let res = engine.connect(parentBlock, newBlock, positionType);
+                    if (!res.ok && positionType !== "nested") {
+                        // LLM sometimes emits pos:"next" for value blocks; retry as nested.
+                        res = engine.connect(parentBlock, newBlock, "nested");
+                    }
+                    if (res.ok) {
+                        console.log(`🔗 [API] '${blockKey}' connected via ${res.mode}.`);
+                    } else {
+                        console.warn(`⚠️ [API] connect failed for '${blockKey}' on '${parentBlock.type}': ${res.why} — placing as root.`);
+                        engine.positionAsRoot(newBlock);
+                    }
                 }
-            } catch (e) {
-                try { newBlock.dispose(); } catch (_) { }
-                throw e;
+            } else {
+                engine.positionAsRoot(newBlock);
+                console.log(`📍 [API] '${blockKey}' placed as a root block.`);
             }
 
             engine.blocksById.set(newBlock.id, newBlock);
